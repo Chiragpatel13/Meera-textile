@@ -1,53 +1,66 @@
 package com.miratextile.clothingmanagement.util;
 
-import com.miratextile.config.JwtConfig;
-import io.jsonwebtoken.Claims;
 import io.jsonwebtoken.Jwts;
 import io.jsonwebtoken.SignatureAlgorithm;
-import org.springframework.security.core.GrantedAuthority;
+import io.jsonwebtoken.security.Keys;
+import jakarta.annotation.PostConstruct;
+import org.springframework.beans.factory.annotation.Value;
+import org.springframework.security.core.userdetails.UserDetails;
 import org.springframework.stereotype.Component;
 
-import java.util.Collection;
+import java.security.Key;
 import java.util.Date;
-import java.util.stream.Collectors;
+import java.util.HashMap;
+import java.util.Map;
 
 @Component
 public class JwtUtil {
 
-    private final JwtConfig jwtConfig;
+    @Value("${app.jwt.secret}")
+    private String secretKey;
 
-    public JwtUtil(JwtConfig jwtConfig) {
-        this.jwtConfig = jwtConfig;
+    @Value("${app.jwt.expiration}")
+    private long expirationTime;
+
+    private Key key;
+
+    @PostConstruct
+    public void init() {
+        this.key = Keys.hmacShaKeyFor(secretKey.getBytes());
     }
 
-    public String generateToken(String username, Collection<? extends GrantedAuthority> authorities) {
-        Claims claims = (Claims) Jwts.claims().setSubject(username);
-        claims.put("roles", authorities.stream()
-                .map(GrantedAuthority::getAuthority)
-                .collect(Collectors.toList()));
-
+    public String generateToken(UserDetails userDetails) {
+        Map<String, Object> claims = new HashMap<>();
         return Jwts.builder()
                 .setClaims(claims)
-                .setIssuedAt(new Date())
-                .setExpiration(new Date(System.currentTimeMillis() + jwtConfig.getExpiration()))
-                .signWith(SignatureAlgorithm.HS512, jwtConfig.getSecret())
+                .setSubject(userDetails.getUsername())
+                .setIssuedAt(new Date(System.currentTimeMillis()))
+                .setExpiration(new Date(System.currentTimeMillis() + expirationTime))
+                .signWith(key, SignatureAlgorithm.HS256)
                 .compact();
     }
 
-    public boolean validateToken(String token) {
-        try {
-            Jwts.parser().setSigningKey(jwtConfig.getSecret()).parseClaimsJws(token);
-            return true;
-        } catch (Exception e) {
-            return false;
-        }
+    public String extractUsername(String token) {
+        return Jwts.parserBuilder()
+                .setSigningKey(key)
+                .build()
+                .parseClaimsJws(token)
+                .getBody()
+                .getSubject();
     }
 
-    public String getUsernameFromToken(String token) {
-        Claims claims = Jwts.parser()
-                .setSigningKey(jwtConfig.getSecret())
+    public boolean validateToken(String token, UserDetails userDetails) {
+        final String username = extractUsername(token);
+        return (username.equals(userDetails.getUsername()) && !isTokenExpired(token));
+    }
+
+    private boolean isTokenExpired(String token) {
+        return Jwts.parserBuilder()
+                .setSigningKey(key)
+                .build()
                 .parseClaimsJws(token)
-                .getBody();
-        return claims.getSubject();
+                .getBody()
+                .getExpiration()
+                .before(new Date());
     }
 }
