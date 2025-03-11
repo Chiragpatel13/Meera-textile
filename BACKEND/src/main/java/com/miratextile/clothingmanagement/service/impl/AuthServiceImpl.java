@@ -1,36 +1,63 @@
 package com.miratextile.clothingmanagement.service.impl;
 
-import com.miratextile.clothingmanagement.dto.request.UserRequestDto;
-import com.miratextile.clothingmanagement.service.AuthService;
+import com.miratextile.clothingmanagement.dto.request.SignupRequestDto;
+import com.miratextile.clothingmanagement.dto.response.SigninRequestDto;
+import com.miratextile.clothingmanagement.dto.response.UserResponseDto;
+import com.miratextile.clothingmanagement.dto.mapper.UserMapper;
+import com.miratextile.clothingmanagement.enums.UserRole;
+import com.miratextile.clothingmanagement.model.User;
+import com.miratextile.clothingmanagement.repository.UserRepository;
 import com.miratextile.clothingmanagement.util.JwtUtil;
 import org.springframework.security.authentication.AuthenticationManager;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
-import org.springframework.security.core.Authentication;
+import org.springframework.security.core.userdetails.UserDetails;
+import org.springframework.security.core.userdetails.UserDetailsService;
+import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 
 @Service
 public class AuthServiceImpl implements AuthService {
 
+    private final UserRepository userRepository;
+    private final UserMapper userMapper;
+    private final PasswordEncoder passwordEncoder;
     private final AuthenticationManager authenticationManager;
+    private final UserDetailsService userDetailsService;
     private final JwtUtil jwtUtil;
 
-    public AuthServiceImpl(AuthenticationManager authenticationManager, JwtUtil jwtUtil) {
+    public AuthServiceImpl(UserRepository userRepository, UserMapper userMapper, PasswordEncoder passwordEncoder,
+                           AuthenticationManager authenticationManager, UserDetailsService userDetailsService,
+                           JwtUtil jwtUtil) {
+        this.userRepository = userRepository;
+        this.userMapper = userMapper;
+        this.passwordEncoder = passwordEncoder;
         this.authenticationManager = authenticationManager;
+        this.userDetailsService = userDetailsService;
         this.jwtUtil = jwtUtil;
     }
 
     @Override
-    public String login(UserRequestDto loginRequest) {
-        try {
-            Authentication authentication = authenticationManager.authenticate(
-                new UsernamePasswordAuthenticationToken(
-                    loginRequest.getUsername(),
-                    loginRequest.getPassword()
-                )
-            );
-            return jwtUtil.generateToken(authentication.getName(), authentication.getAuthorities());
-        } catch (org.springframework.security.core.AuthenticationException e) {
-            throw new AuthenticationException("Invalid username or password");
+    public UserResponseDto signup(SignupRequestDto signupRequestDto) {
+        if (userRepository.findByUsername(signupRequestDto.getUsername()).isPresent()) {
+            throw new RuntimeException("Username already exists");
         }
+        if (userRepository.findByEmail(signupRequestDto.getEmail()).isPresent()) {
+            throw new RuntimeException("Email already exists");
+        }
+
+        User user = userMapper.toEntity(signupRequestDto);
+        user.setPasswordHash(passwordEncoder.encode(signupRequestDto.getPassword()));
+        user.setRole(UserRole.valueOf(signupRequestDto.getRole()));
+        User savedUser = userRepository.save(user);
+        return userMapper.toDto(savedUser);
+    }
+
+    @Override
+    public String signin(SigninRequestDto signinRequestDto) {
+        authenticationManager.authenticate(
+                new UsernamePasswordAuthenticationToken(signinRequestDto.getUsername(), signinRequestDto.getPassword())
+        );
+        UserDetails userDetails = userDetailsService.loadUserByUsername(signinRequestDto.getUsername());
+        return jwtUtil.generateToken(userDetails);
     }
 }
