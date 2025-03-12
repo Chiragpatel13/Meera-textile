@@ -73,7 +73,17 @@
   .auth-form button:hover {
     background-color: #0088cc;
   }
-  
+
+  .password-toggle{
+    position: absolute;
+    right: 10px;
+    top: 75%;
+    transform: translateY(-50%);
+    cursor: pointer;
+    font-size: 18px;
+    color: #666;
+  }
+
   .auth-options {
     display: flex;
     justify-content: space-between;
