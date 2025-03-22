@@ -2,7 +2,7 @@ package com.miratextile.clothingmanagement.controller;
 
 import com.miratextile.clothingmanagement.dto.request.SignupRequestDto;
 import com.miratextile.clothingmanagement.dto.response.AuthResponseDto;
-import com.miratextile.clothingmanagement.dto.response.SigninRequestDto;
+import com.miratextile.clothingmanagement.dto.request.SigninRequestDto;
 import com.miratextile.clothingmanagement.dto.response.UserResponseDto;
 import com.miratextile.clothingmanagement.service.AuthService;
 import org.springframework.http.ResponseEntity;
@@ -23,13 +23,13 @@ public class AuthController {
 
     @PostMapping("/signup")
     public ResponseEntity<UserResponseDto> signup(@RequestBody SignupRequestDto signupRequestDto) {
-        UserResponseDto user = authService.signup(signupRequestDto);
+        UserResponseDto user = authService.signUp(signupRequestDto);
         return ResponseEntity.ok(user);
     }
 
     @PostMapping("/signin")
     public ResponseEntity<AuthResponseDto> signin(@RequestBody SigninRequestDto signinRequestDto) {
-        String token = authService.signin(signinRequestDto);
+        String token = authService.signIn(signinRequestDto);
         return ResponseEntity.ok(new AuthResponseDto(token));
     }
 }

@@ -1,9 +1,9 @@
 package com.miratextile.clothingmanagement.service.impl;
 
 import com.miratextile.clothingmanagement.dto.mapper.UserMapper;
+import com.miratextile.clothingmanagement.dto.request.SigninRequestDto;
 import com.miratextile.clothingmanagement.dto.request.SignupRequestDto;
 import com.miratextile.clothingmanagement.dto.request.UserRequestDto;
-import com.miratextile.clothingmanagement.dto.response.SignInRequestDto;
 import com.miratextile.clothingmanagement.dto.response.UserResponseDto;
 import com.miratextile.clothingmanagement.enums.UserRole;
 import com.miratextile.clothingmanagement.model.User;
@@ -63,7 +63,7 @@ public class AuthServiceImpl implements AuthService {
     }
 
     @Override
-    public String signIn(SignInRequestDto signinRequestDto) {
+    public String signIn(SigninRequestDto signinRequestDto) {
         authenticationManager.authenticate(
                 new UsernamePasswordAuthenticationToken(signinRequestDto.getUsername(), signinRequestDto.getPassword())
         );
