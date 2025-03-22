@@ -1,5 +1,6 @@
 // src/pages/Signup.js
 import React, { useState } from 'react';
+import { FaEye, FaEyeSlash } from 'react-icons/fa';
 import { Link, useNavigate } from 'react-router-dom';
 import FormInput from '../components/FormInput';
 import '../styles/Auth.css';
@@ -17,6 +18,7 @@ const Signup = () => {
       setError('All fields are required');
     }
   };
+  const [showPassword, setShowPassword] = useState(false);
 
   return (
     <div className="auth-container">
@@ -37,13 +39,20 @@ const Signup = () => {
             onChange={(e) => setUserData({ ...userData, email: e.target.value })}
             error={error}
           />
+          <div style={{ position: 'relative', width: '100%' }}>
           <FormInput
             label="Password"
-            type="password"
+            type={showPassword ? "text" : "password"}
             value={userData.password}
             onChange={(e) => setUserData({ ...userData, password: e.target.value })}
             error={error}
           />
+          <span 
+            className="password-toggle"
+            onClick={() => setShowPassword(!showPassword)}>
+            {showPassword ? <FaEyeSlash /> : <FaEye />}
+          </span>
+          </div>
           <button type="submit">Sign Up</button>
           {error && <p className="error">{error}</p>}
           <p className="auth-footer">

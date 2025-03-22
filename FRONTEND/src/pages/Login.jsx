@@ -1,5 +1,6 @@
 // src/pages/Login.js
 import React, { useState } from 'react';
+import { FaEye, FaEyeSlash } from 'react-icons/fa';
 import { Link, useNavigate } from 'react-router-dom';
 import FormInput from '../components/FormInput';
 import { useAuth } from '../context/AuthContext';
@@ -20,7 +21,8 @@ const Login = () => {
       setError('Invalid username or password');
     }
   };
-
+  const [showPassword, setShowPassword] = useState(false);
+  
   return (
     <div className="auth-container">
       <div className="auth-card">
@@ -33,13 +35,22 @@ const Login = () => {
             onChange={(e) => setCredentials({ ...credentials, username: e.target.value })}
             error={error}
           />
-          <FormInput
+          <div style={{ position: 'relative', width: '100%' }}>
+          <FormInput 
             label="Password"
-            type="password"
+            type={showPassword ? "text" : "password"}
             value={credentials.password}
             onChange={(e) => setCredentials({ ...credentials, password: e.target.value })}
             error={error}
           />
+          <span 
+          className="password-toggle"
+          onClick={() => setShowPassword(!showPassword)}
+        >
+          {showPassword ? <FaEyeSlash /> : <FaEye />}
+        </span>
+        </div>
+
           <div className="auth-options">
             <label>
               <input type="checkbox" /> Remember Me
