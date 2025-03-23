@@ -25,7 +25,7 @@ text-align: center;
 margin-bottom: 30px;
 }
 
-/* KPI Cards */
+
 .kpi-container {
 display: flex;
 justify-content: space-between;
@@ -35,7 +35,7 @@ gap: 20px;
 
 .kpi-card {
 flex: 1;
-background-color: #3B3F51;
+background-color: #3B3F51 !important;;
 padding: 20px;
 border-radius: 8px;
 text-align: center;
@@ -53,7 +53,7 @@ color: #F4A261;
 margin-bottom: 10px;
 }
 
-.kpi-card h3 {
+.kpi-card .h3 {
 font-size: 16px;
 margin: 0 0 5px;
 color: #EAEAEA;
@@ -62,11 +62,10 @@ color: #EAEAEA;
 .kpi-card p {
 font-size: 20px;
 margin: 0;
-color: #EAEAEA;
+color: #EAEAEA !important;
 font-weight: bold;
 }
 
-/* Quick Actions */
 .quick-actions {
 background-color: #3B3F51;
 padding: 20px;
@@ -108,7 +107,6 @@ font-size: 18px;
 margin-right: 5px;
 }
 
-/* Recent Alerts */
 .alerts {
 background-color: #3B3F51;
 padding: 20px;
@@ -118,7 +116,7 @@ box-shadow: 0 4px 10px rgba(0, 0, 0, 0.3);
 
 .alerts h2 {
 font-size: 18px;
-color: #F4A261;
+color: #D0342C;
 margin-bottom: 20px;
 }
 
