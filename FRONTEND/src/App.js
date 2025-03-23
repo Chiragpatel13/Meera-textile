@@ -3,6 +3,7 @@ import React from 'react';
 import { BrowserRouter as Router, Routes, Route } from 'react-router-dom';
 import Login from './pages/Login';
 import Signup from './pages/Signup';
+import ForgotPassword from './pages/ForgotPassword';
 import Dashboard from './pages/Dashboard';
 import ManualOrderEntry from './pages/ManualOrderEntry';
 import InventoryManagement from './pages/InventoryManagement';
@@ -18,6 +19,7 @@ function App() {
       <Routes>
         <Route path="/login" element={<Dashboard />} />
         <Route path="/signup" element={<Signup />} />
+        <Route path="/forgot-password" element={<ForgotPassword />} />
         <Route element={<Layout />}>
           <Route
             path="/dashboard"
