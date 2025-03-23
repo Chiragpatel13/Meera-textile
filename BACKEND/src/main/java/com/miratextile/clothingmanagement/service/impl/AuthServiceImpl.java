@@ -1,14 +1,16 @@
 package com.miratextile.clothingmanagement.service.impl;
 
-import com.miratextile.clothingmanagement.dto.request.SignupRequestDto;
-import com.miratextile.clothingmanagement.dto.response.SigninRequestDto;
-import com.miratextile.clothingmanagement.dto.response.UserResponseDto;
 import com.miratextile.clothingmanagement.dto.mapper.UserMapper;
+import com.miratextile.clothingmanagement.dto.request.SigninRequestDto;
+import com.miratextile.clothingmanagement.dto.request.SignupRequestDto;
+import com.miratextile.clothingmanagement.dto.request.UserRequestDto;
+import com.miratextile.clothingmanagement.dto.response.UserResponseDto;
 import com.miratextile.clothingmanagement.enums.UserRole;
 import com.miratextile.clothingmanagement.model.User;
 import com.miratextile.clothingmanagement.repository.UserRepository;
 import com.miratextile.clothingmanagement.service.AuthService;
 import com.miratextile.clothingmanagement.util.JwtUtil;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.security.authentication.AuthenticationManager;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.security.core.userdetails.UserDetails;
@@ -26,6 +28,7 @@ public class AuthServiceImpl implements AuthService {
     private final UserDetailsService userDetailsService;
     private final JwtUtil jwtUtil;
 
+    @Autowired
     public AuthServiceImpl(UserRepository userRepository, UserMapper userMapper, PasswordEncoder passwordEncoder,
                            AuthenticationManager authenticationManager, UserDetailsService userDetailsService,
                            JwtUtil jwtUtil) {
@@ -38,15 +41,21 @@ public class AuthServiceImpl implements AuthService {
     }
 
     @Override
-    public UserResponseDto signup(SignupRequestDto signupRequestDto) {
+    public UserResponseDto signUp(SignupRequestDto signupRequestDto) {
         if (userRepository.findByUsername(signupRequestDto.getUsername()).isPresent()) {
             throw new RuntimeException("Username already exists");
         }
         if (userRepository.findByEmail(signupRequestDto.getEmail()).isPresent()) {
             throw new RuntimeException("Email already exists");
         }
+        UserRequestDto userRequestDto = new UserRequestDto();
+        userRequestDto.setEmail(signupRequestDto.getEmail());
+        userRequestDto.setFullName(signupRequestDto.getFullName());
+        userRequestDto.setPassword(signupRequestDto.getPassword());
+        userRequestDto.setUsername(signupRequestDto.getUsername());
+        userRequestDto.setRole(signupRequestDto.getRole());
 
-        User user = userMapper.toEntity(signupRequestDto);
+        User user = userMapper.toEntity(userRequestDto);
         user.setPasswordHash(passwordEncoder.encode(signupRequestDto.getPassword()));
         user.setRole(UserRole.valueOf(signupRequestDto.getRole()));
         User savedUser = userRepository.save(user);
@@ -54,7 +63,7 @@ public class AuthServiceImpl implements AuthService {
     }
 
     @Override
-    public String signin(SigninRequestDto signinRequestDto) {
+    public String signIn(SigninRequestDto signinRequestDto) {
         authenticationManager.authenticate(
                 new UsernamePasswordAuthenticationToken(signinRequestDto.getUsername(), signinRequestDto.getPassword())
         );

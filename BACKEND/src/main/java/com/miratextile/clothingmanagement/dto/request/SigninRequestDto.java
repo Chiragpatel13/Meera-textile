@@ -1,4 +1,4 @@
-package com.miratextile.clothingmanagement.dto.response;
+package com.miratextile.clothingmanagement.dto.request;
 
 public class SigninRequestDto {
     private String username;

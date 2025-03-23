@@ -1,10 +1,10 @@
 package com.miratextile.clothingmanagement.service;
 
 import com.miratextile.clothingmanagement.dto.request.SignupRequestDto;
-import com.miratextile.clothingmanagement.dto.response.SigninRequestDto;
+import com.miratextile.clothingmanagement.dto.request.SigninRequestDto;
 import com.miratextile.clothingmanagement.dto.response.UserResponseDto;
 
 public interface AuthService {
-    UserResponseDto signup(SignupRequestDto signupRequestDto);
-    String signin(SigninRequestDto signinRequestDto);
+    UserResponseDto signUp(SignupRequestDto signupRequestDto);
+    String signIn(SigninRequestDto signinRequestDto);
 }
