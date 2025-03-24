@@ -6,13 +6,18 @@ import Signup from './pages/Signup';
 import ForgotPassword from './pages/ForgotPassword';
 import ResetPassword from './styles/ResetPassword';
 import Dashboard from './pages/Dashboard';
+import UserManagement from './pages/UserManagement';
 import ManualOrderEntry from './pages/ManualOrderEntry';
 import InventoryManagement from './pages/InventoryManagement';
 import PaymentProcessing from './pages/PaymentProcessing';
 import Reporting from './pages/Reporting';
 import ManagerDashboard from './pages/ManagerDashboard';
+import Profile from './pages/Profile';
+
 import Layout from './components/Layout';
 import ProtectedRoute from './components/ProtectedRoute';
+
+
 
 function App() {
   return (
@@ -21,7 +26,9 @@ function App() {
         <Route path="/login" element={<Dashboard />} />
         <Route path="/signup" element={<Signup />} />
         <Route path="/forgot-password" element={<ForgotPassword />} />
-        <Route element={<Layout />}>
+        <Route path="/ResetPassword" element={<ResetPassword />} />
+        <Route path="/UserManagement" element={<UserManagement />} />
+        <Route path="/Profile" element={<Profile />} />        
           <Route
             path="/dashboard"
             element={
@@ -70,7 +77,6 @@ function App() {
               </ProtectedRoute>
             }
           />
-        </Route>
         <Route path="/" element={<Login />} />
       </Routes>
     </Router>

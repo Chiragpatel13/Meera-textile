@@ -14,8 +14,11 @@ import {
   FaSync,
   FaSignOutAlt,
   FaUserCircle,
-  FaBars
+  FaBars,
+  FaKey,
+  AiFil
 } from 'react-icons/fa';
+import { AiFillIdcard } from 'react-icons/ai';
 import '../styles/dashboard.css';
 
 // Register ChartJS components
@@ -35,9 +38,15 @@ const Dashboard = () => {
   const [outstandingCredits, setOutstandingCredits] = useState([]);
   const [isLoading, setIsLoading] = useState(true);
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
+  const [userMenuOpen, setUserMenuOpen] = useState(false);
+  const [userData, setUserData] = useState({
+    name: 'John Doe',
+    email: 'john.doe@example.com'
+  });
 
   useEffect(() => {
     fetchDashboardData();
+    fetchUserData();
   }, []);
 
   const fetchDashboardData = async () => {
@@ -73,14 +82,62 @@ const Dashboard = () => {
     }
   };
 
+  const fetchUserData = async () => {
+    try {
+      // Fetch user data from the backend
+      // Uncomment and modify this when your API is ready
+      /*
+      const userResponse = await fetch('/api/user/profile');
+      const userData = await userResponse.json();
+      setUserData(userData);
+      */
+    } catch (error) {
+      console.error('Error fetching user data:', error);
+    }
+  };
+
   const handleLogout = () => {
-    localStorage.clear();
-    navigate('/login');
+    if (window.confirm("Are you sure you want to logout?")) {
+      localStorage.clear();
+      sessionStorage.clear();
+      navigate('/Login');
+    }
   };
 
   const toggleSidebar = () => {
     setSidebarCollapsed(!sidebarCollapsed);
   };
+
+  const toggleUserMenu = () => {
+    setUserMenuOpen(!userMenuOpen);
+  };
+
+  const closeUserMenu = () => {
+    setUserMenuOpen(false);
+  };
+
+  const handleResetPassword = () => {
+    navigate('/ResetPassword');
+    // Alternatively, you could show a modal here instead of navigating
+  };
+  const handleUser = () => {
+    navigate('/Profile');
+    // Alternatively, you could show a modal here instead of navigating
+  };
+
+  // Close user menu when clicking outside
+  useEffect(() => {
+    const handleClickOutside = (event) => {
+      if (userMenuOpen && !event.target.closest('.user-menu-container')) {
+        closeUserMenu();
+      }
+    };
+
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside);
+    };
+  }, [userMenuOpen]);
 
   // Prepare chart data
   const chartData = {
@@ -114,6 +171,7 @@ const Dashboard = () => {
       }
     }
   };
+  
 
   return (
     <div className="admin-dashboard">
@@ -126,11 +184,11 @@ const Dashboard = () => {
           </button>
         </div>
         <ul className="sidebar-menu">
-          <li className="active"><Link to="/admin/dashboard"><FaChartBar /> Dashboard</Link></li>
-          <li><Link to="/inventory/manage"><FaBox /> Inventory</Link></li>
-          <li><Link to="/orders"><FaShoppingCart /> Orders</Link></li>
-          <li><Link to="/customers"><FaUsers /> Customers</Link></li>
-          <li><Link to="/reports"><FaFolder /> Reports</Link></li>
+          <li className="active"><Link to="/admin/dashboard"><FaChartBar /> <span>Dashboard</span></Link></li>
+          <li><Link to="/inventory/manage"><FaBox /> <span>Inventory</span></Link></li>
+          <li><Link to="/orders"><FaShoppingCart /> <span>Orders</span></Link></li>
+          <li><Link to="/customers"><FaUsers /> <span>Customers</span></Link></li>
+          <li><Link to="/reports"><FaFolder /> <span>Reports</span></Link></li>
         </ul>
       </div>
 
@@ -141,18 +199,40 @@ const Dashboard = () => {
           <div className="page-title">
             <h1>Dashboard</h1>
           </div>
-          <div className="user-menu">
-            <button className="refresh-btn" onClick={fetchDashboardData} title="Refresh Data">
+          <div className="top-bar-actions">
+            <button className="refresh-btn" onClick={fetchDashboardData}>
               <FaSync />
             </button>
-            <div className="dropdown">
-              <button className="user-avatar">
+            <div className="user-menu-container">
+              <button className="user-menu-btn" onClick={toggleUserMenu}>
                 <FaUserCircle />
               </button>
-              <div className="dropdown-content">
-                <Link to="/profile">View Profile</Link>
-                <button onClick={handleLogout}>Logout <FaSignOutAlt /></button>
-              </div>
+              
+              {userMenuOpen && (
+                <div className="user-popup">
+                  <div className="user-info">
+                    <div className="user-avatar">
+                      <FaUserCircle />
+                    </div>
+                    <div className="user-details">
+                      <h3>{userData.name}</h3>
+                      <p>{userData.email}</p>
+                    </div>
+                  </div>
+                  <div className="user-actions">
+                    <button className="reset-password-btn" onClick={handleResetPassword}>
+                      <FaKey /> Reset Password
+                    </button>
+                    <button className="reset-password-btn" onClick={handleUser}>
+                      <AiFillIdcard /> User Profile
+                    </button>
+                    <button className="logout-btn" onClick={handleLogout}>
+                      <FaSignOutAlt /> Logout
+                    </button>
+                    
+                  </div>
+                </div>
+              )}
             </div>
           </div>
         </div>
@@ -182,7 +262,7 @@ const Dashboard = () => {
                   <div className="card-body">
                     <Link 
                       to="/inventory/manage" 
-                      className={`inventory-alert ${lowStockCount > 0 ? 'alert-red' : 'alert-red'}`}
+                      className={`inventory-alert ${lowStockCount > 0 ? 'alert-red' : 'alert-green'}`}
                     >
                       Low Stock Items: {lowStockCount}
                     </Link>
@@ -237,7 +317,7 @@ const Dashboard = () => {
                 </div>
                 <div className="card-body">
                   <div className="action-buttons">
-                    <Link to="/admin/users" className="action-button">
+                    <Link to="/UserManagement" className="action-button">
                       <FaUserPlus /> Add User
                     </Link>
                     <Link to="/reports" className="action-button">

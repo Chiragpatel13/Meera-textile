@@ -135,7 +135,7 @@ const ResetPassword = () => {
           {error && <p className="error">{error}</p>}
         </form>
         <div className="auth-footer">
-          <Link to="/login">Back to Login</Link>
+          <Link to="/login">Back to Dashboard</Link>
         </div>
       </div>
     </div>
