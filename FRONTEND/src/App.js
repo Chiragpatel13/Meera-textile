@@ -4,6 +4,7 @@ import { BrowserRouter as Router, Routes, Route } from 'react-router-dom';
 import Login from './pages/Login';
 import Signup from './pages/Signup';
 import ForgotPassword from './pages/ForgotPassword';
+import ResetPassword from './styles/ResetPassword';
 import Dashboard from './pages/Dashboard';
 import ManualOrderEntry from './pages/ManualOrderEntry';
 import InventoryManagement from './pages/InventoryManagement';
