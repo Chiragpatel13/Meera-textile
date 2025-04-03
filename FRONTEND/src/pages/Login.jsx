@@ -137,7 +137,7 @@ const Login = () => {
         <h1>Mira Textile</h1>
         <form onSubmit={handleSubmit} className="auth-form">
           <div className="form-input">
-            <label htmlFor="username">Username</label>
+            <label htmlFor="username" style={{color: "black"}}>Username</label>
             <input
               type="text"
               id="username"

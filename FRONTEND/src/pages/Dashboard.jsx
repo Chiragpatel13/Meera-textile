@@ -16,7 +16,8 @@ import {
   FaUserCircle,
   FaBars,
   FaKey,
-  AiFil
+  AiFil,
+  FaCashRegister
 } from 'react-icons/fa';
 import { AiFillIdcard } from 'react-icons/ai';
 import '../styles/dashboard.css';
@@ -185,10 +186,10 @@ const Dashboard = () => {
         </div>
         <ul className="sidebar-menu">
           <li className="active"><Link to="/admin/dashboard"><FaChartBar /> <span>Dashboard</span></Link></li>
-          <li><Link to="/inventory/manage"><FaBox /> <span>Inventory</span></Link></li>
-          <li><Link to="/orders"><FaShoppingCart /> <span>Orders</span></Link></li>
-          <li><Link to="/customers"><FaUsers /> <span>Customers</span></Link></li>
-          <li><Link to="/reports"><FaFolder /> <span>Reports</span></Link></li>
+          <li><Link to="/InventoryStaff"><FaBox /> <span>Inventory</span></Link></li>
+          <li><Link to="/pos"><FaShoppingCart /> <span>Orders</span></Link></li>
+          <li><Link to="/CustomerManagement"><FaUsers /> <span>Customers</span></Link></li>
+          <li><Link to="/Reportingpage"><FaFolder /> <span>Reports</span></Link></li>
         </ul>
       </div>
 
@@ -320,10 +321,10 @@ const Dashboard = () => {
                     <Link to="/UserManagement" className="action-button">
                       <FaUserPlus /> Add User
                     </Link>
-                    <Link to="/reports" className="action-button">
+                    <Link to="/Reportingpage" className="action-button">
                       <FaChartBar /> View Reports
                     </Link>
-                    <Link to="/customers" className="action-button">
+                    <Link to="/CustomerManagement" className="action-button">
                       <FaUsers /> Manage Customers
                     </Link>
                   </div>
