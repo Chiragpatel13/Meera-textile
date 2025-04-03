@@ -156,19 +156,63 @@ const Dashboard = () => {
 
   const chartOptions = {
     responsive: true,
+    maintainAspectRatio: false,
     scales: {
       y: {
         beginAtZero: true,
-        title: {
+        suggestedMin: 0,
+        suggestedMax: 1000,
+        ticks: {
+          stepSize: 100,
+          callback: function(value) {
+            return '₹' + value;
+          },
+          maxTicksLimit: 10
+        },
+        grid: {
+          drawBorder: false,
+          color: '#E2E2E2'
+        },
+        border: {
           display: true,
-          text: 'Sales Amount ($)'
+          color: '#E2E2E2'
         }
       },
       x: {
+        grid: {
+          drawBorder: false,
+          display: false
+        },
+        border: {
+          display: true,
+          color: '#E2E2E2'
+        },
         title: {
           display: true,
-          text: 'Date'
+          text: 'Date',
+          font: {
+            size: 14,
+            weight: 'bold'
+          }
         }
+      }
+    },
+    plugins: {
+      legend: {
+        display: true,
+        position: 'top',
+        labels: {
+          boxWidth: 20,
+          padding: 15
+        }
+      }
+    },
+    layout: {
+      padding: {
+        left: 10,
+        right: 10,
+        top: 0,
+        bottom: 0
       }
     }
   };
@@ -186,7 +230,7 @@ const Dashboard = () => {
         </div>
         <ul className="sidebar-menu">
           <li className="active"><Link to="/admin/dashboard"><FaChartBar /> <span>Dashboard</span></Link></li>
-          <li><Link to="/InventoryStaff"><FaBox /> <span>Inventory</span></Link></li>
+          <li><Link to="/InventoryManagement"><FaBox /> <span>Inventory</span></Link></li>
           <li><Link to="/pos"><FaShoppingCart /> <span>Orders</span></Link></li>
           <li><Link to="/CustomerManagement"><FaUsers /> <span>Customers</span></Link></li>
           <li><Link to="/Reportingpage"><FaFolder /> <span>Reports</span></Link></li>

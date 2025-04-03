@@ -313,7 +313,21 @@
   /* Sales Overview */
   .sales-overview {
     width: 100%;
+    height: 450px;
+    margin-bottom: 20px;
+  }
+  
+  .sales-overview .card-body {
     height: 400px;
+    width: 100%;
+    padding: 20px;
+    position: relative;
+  }
+  
+  .sales-overview canvas {
+    height: 100% !important;
+    width: 100% !important;
+    max-height: 380px;
   }
   
   /* Cards Row */

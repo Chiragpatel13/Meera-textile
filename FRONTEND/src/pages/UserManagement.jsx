@@ -447,7 +447,7 @@ const UserManagement = () => {
         </div>
         <ul className="sidebar-menu">
           <li><Link to="/dashboard"><FaChartBar /> <span>Dashboard</span></Link></li>
-          <li><Link to="/inventory/manage"><FaBox /> <span>Inventory</span></Link></li>
+          <li><Link to="/InventoryManagement"><FaBox /> <span>Inventory</span></Link></li>
           <li><Link to="/orders"><FaShoppingCart /> <span>Orders</span></Link></li>
           <li><Link to="/customers"><FaUsers /> <span>Customers</span></Link></li>
           <li><Link to="/reports"><FaFolder /> <span>Reports</span></Link></li>
