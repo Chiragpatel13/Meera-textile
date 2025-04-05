@@ -6,9 +6,8 @@ name: Maven Package with React Build
 on:
   release:
     types: [created]
-  # Optional: You might want to add this to test the workflow on pull requests
-  # pull_request:
-  #   branches: [ main ]
+  pull_request:
+    branches: [ main ]
 
 jobs:
   build:
@@ -26,8 +25,8 @@ jobs:
       with:
         java-version: '21'
         distribution: 'temurin'
-        server-id: github # Value of the distributionManagement/repository/id field of the pom.xml
-        settings-path: ${{ github.workspace }} # location for the settings.xml file
+        server-id: github
+        settings-path: ${{ github.workspace }}
         cache: maven
     
     # Set up Node.js for React frontend
@@ -41,29 +40,36 @@ jobs:
     # Install frontend dependencies and build React app
     - name: Build React frontend
       run: |
-        # Navigate to React app directory
         cd FRONTEND
         npm ci
         npm run build
-        # Copy React build to Spring Boot static resources
         mkdir -p ../BACKEND/src/main/resources/static
         cp -r build/* ../BACKEND/src/main/resources/static/
+      continue-on-error: false
+    
+    # Cache React build output
+    - name: Cache React build
+      uses: actions/cache@v3
+      with:
+        path: FRONTEND/build
+        key: ${{ runner.os }}-react-build-${{ hashFiles('FRONTEND/package-lock.json') }}
+        restore-keys: |
+          ${{ runner.os }}-react-build-
     
     # Run tests for backend
     - name: Test with Maven
       run: mvn -B test --file BACKEND/pom.xml
+      continue-on-error: false
     
     # Package the application
     - name: Build with Maven
       run: mvn -B package --file BACKEND/pom.xml -DskipTests
+      continue-on-error: false
     
     # Update pom.xml with GitHub Packages configuration
     - name: Update pom.xml for GitHub Packages
       run: |
-        # Create a backup of the original pom.xml
         cp BACKEND/pom.xml BACKEND/pom.xml.bak
-        
-        # Use sed to add distributionManagement section if it doesn't exist
         if ! grep -q "<distributionManagement>" BACKEND/pom.xml; then
           sed -i '/<\/properties>/a \
           \    <!-- GitHub Packages Distribution Management --> \
@@ -75,9 +81,20 @@ jobs:
           \        </repository> \
           \    </distributionManagement>' BACKEND/pom.xml
         fi
+      continue-on-error: false
     
     # Publish to GitHub Packages
     - name: Publish to GitHub Packages
+      if: github.event_name == 'release'
       run: mvn deploy -s ${{ github.workspace }}/settings.xml -f BACKEND/pom.xml
       env:
         GITHUB_TOKEN: ${{ github.token }}
+      continue-on-error: false
+    
+    # Cleanup step
+    - name: Cleanup
+      if: always()
+      run: |
+        if [ -f BACKEND/pom.xml.bak ]; then
+          rm BACKEND/pom.xml.bak
+        fi
