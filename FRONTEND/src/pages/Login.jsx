@@ -30,16 +30,8 @@ const Login = () => {
       setError('Username is required');
       return false;
     }
-    if (credentials.username.trim().length < 3) {
-      setError('Username must be at least 3 characters');
-      return false;
-    }
     if (!credentials.password.trim()) {
       setError('Password is required');
-      return false;
-    }
-    if (credentials.password.trim().length < 8) {
-      setError('Password must be at least 8 characters');
       return false;
     }
     return true;
@@ -56,35 +48,13 @@ const Login = () => {
     setIsSubmitting(true);
     
     try {
-      // For demonstration/testing
-      if (credentials.username === 'admin' && credentials.password === 'password123') {
-        login({ 
-          role: 'STORE_MANAGER', 
-          username: credentials.username 
-        });
-        navigate('/admin/dashboard', { replace: true });
-      } else if (credentials.username === 'sales' && credentials.password === 'password123') {
-        login({ 
-          role: 'SALES_STAFF', 
-          username: credentials.username 
-        });
-        navigate('/sales/pos', { replace: true });
-      } else if (credentials.username === 'inventory' && credentials.password === 'password123') {
-        login({ 
-          role: 'INVENTORY_STAFF', 
-          username: credentials.username 
-        });
-        navigate('/inventory/manage', { replace: true });
-      } else {
-        setError('Invalid username or password');
-      }
+      console.log('Attempting login with:', { username: credentials.username });
       
-      // In production, use this code instead:
-      /*
-      const response = await fetch('/api/auth/login', {
+      const response = await fetch('http://localhost:8080/api/auth/login', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
+          'Accept': 'application/json'
         },
         body: JSON.stringify({
           username: credentials.username,
@@ -92,19 +62,43 @@ const Login = () => {
         })
       });
       
+      console.log('Response status:', response.status);
+      console.log('Response headers:', Object.fromEntries(response.headers.entries()));
+      
+      let data;
+      const contentType = response.headers.get('content-type');
+      
+      try {
+        data = await response.json();
+        console.log('Response data:', data);
+      } catch (parseError) {
+        console.error('Error parsing response:', parseError);
+        const text = await response.text();
+        console.log('Raw response:', text);
+        throw new Error('Failed to parse server response');
+      }
+      
       if (response.ok) {
-        const data = await response.json();
+        if (!data.token) {
+          console.error('No token in response:', data);
+          throw new Error('Authentication failed - no token received');
+        }
         
-        // Store JWT token
         localStorage.setItem('token', data.token);
+        console.log('Token stored successfully');
         
-        // Log in user
+        if (!data.role) {
+          console.error('No role in response:', data);
+          throw new Error('Authentication failed - no role received');
+        }
+        
         login({
           role: data.role,
           username: credentials.username
         });
         
-        // Redirect based on user role
+        console.log('User logged in with role:', data.role);
+        
         switch (data.role) {
           case 'STORE_MANAGER':
             navigate('/admin/dashboard', { replace: true });
@@ -116,16 +110,16 @@ const Login = () => {
             navigate('/inventory/manage', { replace: true });
             break;
           default:
+            console.warn('Unknown role:', data.role);
             navigate('/dashboard', { replace: true });
         }
       } else {
-        const errorData = await response.json();
-        setError(errorData.message || 'Login failed. Please try again.');
+        console.error('Login failed:', data);
+        setError(data.message || 'Invalid username or password');
       }
-      */
     } catch (error) {
       console.error('Login error:', error);
-      setError('An unexpected error occurred. Please try again.');
+      setError(error.message || 'An unexpected error occurred. Please try again.');
     } finally {
       setIsSubmitting(false);
     }
@@ -178,6 +172,7 @@ const Login = () => {
           <button 
             type="submit" 
             disabled={isSubmitting}
+            className={isSubmitting ? 'submitting' : ''}
           >
             {isSubmitting ? 'Logging in...' : 'Login'}
           </button>
