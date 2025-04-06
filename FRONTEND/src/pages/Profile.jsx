@@ -20,6 +20,8 @@ import {
 import { AiFillIdcard } from 'react-icons/ai';
 import '../styles/dashboard.css';
 
+const API_BASE_URL = 'http://localhost:8082/api';
+
 const Profile = () => {
   const navigate = useNavigate();
   const [formData, setFormData] = useState({
@@ -46,16 +48,37 @@ const Profile = () => {
   const fetchProfileData = async () => {
     setIsLoading(true);
     try {
-      const response = await fetch('/api/profile');
+      const token = localStorage.getItem('token');
+      if (!token) {
+        console.error('No authentication token found');
+        setIsLoading(false);
+        return;
+      }
+
+      const response = await fetch(`${API_BASE_URL}/admin/users/current`, {
+        headers: {
+          'Authorization': `Bearer ${token}`
+        }
+      });
+      
       if (!response.ok) {
         throw new Error('Failed to fetch profile data');
       }
+      
       const data = await response.json();
-      setFormData({
-        username: data.username || '',
-        email: data.email || '',
-        password: ''
-      });
+      if (data.success && data.data) {
+        setFormData({
+          username: data.data.username || '',
+          email: data.data.email || '',
+          password: ''
+        });
+        
+        // Also update the userData state for the user menu
+        setUserData({
+          name: data.data.fullName || 'Unknown User',
+          email: data.data.email || 'No email'
+        });
+      }
     } catch (error) {
       console.error('Error fetching profile data:', error);
       showToast('Failed to load profile data', 'error');
@@ -66,15 +89,32 @@ const Profile = () => {
 
   const fetchUserData = async () => {
     try {
-      // Fetch user data from the backend
-      // Uncomment and modify this when your API is ready
-      /*
-      const userResponse = await fetch('/api/user/profile');
-      const userData = await userResponse.json();
-      setUserData(userData);
-      */
+      const token = localStorage.getItem('token');
+      if (!token) {
+        console.error('No authentication token found');
+        return;
+      }
+
+      const response = await fetch(`${API_BASE_URL}/admin/users/current`, {
+        headers: {
+          'Authorization': `Bearer ${token}`
+        }
+      });
+
+      if (!response.ok) {
+        throw new Error('Failed to fetch user data');
+      }
+
+      const data = await response.json();
+      if (data.success && data.data) {
+        setUserData({
+          name: data.data.fullName || 'Unknown User',
+          email: data.data.email || 'No email'
+        });
+      }
     } catch (error) {
       console.error('Error fetching user data:', error);
+      showToast('Failed to load user data', 'error');
     }
   };
 
@@ -124,6 +164,11 @@ const Profile = () => {
     setIsSubmitting(true);
     
     try {
+      const token = localStorage.getItem('token');
+      if (!token) {
+        throw new Error('No authentication token found');
+      }
+      
       // Create request payload (only include password if it's not empty)
       const payload = {
         email: formData.email
@@ -133,10 +178,11 @@ const Profile = () => {
         payload.password = formData.password;
       }
       
-      const response = await fetch('/api/profile', {
+      const response = await fetch(`${API_BASE_URL}/admin/users/profile`, {
         method: 'PUT',
         headers: {
-          'Content-Type': 'application/json'
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
         },
         body: JSON.stringify(payload)
       });
@@ -145,16 +191,27 @@ const Profile = () => {
         throw new Error('Failed to update profile');
       }
       
-      // Reset password field
-      setFormData({
-        ...formData,
-        password: ''
-      });
-      
-      showToast('Profile updated successfully', 'success');
+      const data = await response.json();
+      if (data.success) {
+        // Reset password field
+        setFormData({
+          ...formData,
+          password: ''
+        });
+        
+        // Update user data in the menu
+        setUserData({
+          name: data.data.fullName || userData.name,
+          email: data.data.email || userData.email
+        });
+        
+        showToast('Profile updated successfully', 'success');
+      } else {
+        throw new Error(data.message || 'Failed to update profile');
+      }
     } catch (error) {
       console.error('Error updating profile:', error);
-      showToast('Failed to update profile', 'error');
+      showToast(error.message || 'Failed to update profile', 'error');
     } finally {
       setIsSubmitting(false);
     }

@@ -17,8 +17,10 @@ public class UserCreationRequest {
     @Email(message = "Email should be valid")
     private String email;
 
+    private String password;
+
     @NotBlank(message = "Role is required")
-    @Pattern(regexp = "^(SALES_STAFF|INVENTORY_STAFF)$", 
-            message = "Role must be either SALES_STAFF or INVENTORY_STAFF")
+    @Pattern(regexp = "^(SALES_STAFF|INVENTORY_STAFF|ADMIN|STORE_MANAGER)$", 
+            message = "Role must be either SALES_STAFF, INVENTORY_STAFF, ADMIN, or STORE_MANAGER")
     private String role;
 }

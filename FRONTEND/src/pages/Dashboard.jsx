@@ -22,6 +22,8 @@ import {
 import { AiFillIdcard } from 'react-icons/ai';
 import '../styles/dashboard.css';
 
+const API_BASE_URL = 'http://localhost:8082/api';
+
 // Register ChartJS components
 ChartJS.register(
   CategoryScale,
@@ -41,8 +43,8 @@ const Dashboard = () => {
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
   const [userMenuOpen, setUserMenuOpen] = useState(false);
   const [userData, setUserData] = useState({
-    name: 'John Doe',
-    email: 'john.doe@example.com'
+    name: '',
+    email: ''
   });
 
   useEffect(() => {
@@ -85,13 +87,29 @@ const Dashboard = () => {
 
   const fetchUserData = async () => {
     try {
-      // Fetch user data from the backend
-      // Uncomment and modify this when your API is ready
-      /*
-      const userResponse = await fetch('/api/user/profile');
-      const userData = await userResponse.json();
-      setUserData(userData);
-      */
+      const token = localStorage.getItem('token');
+      if (!token) {
+        console.error('No authentication token found');
+        return;
+      }
+
+      const response = await fetch(`${API_BASE_URL}/admin/users/current`, {
+        headers: {
+          'Authorization': `Bearer ${token}`
+        }
+      });
+
+      if (!response.ok) {
+        throw new Error('Failed to fetch user data');
+      }
+
+      const data = await response.json();
+      if (data.success && data.data) {
+        setUserData({
+          name: data.data.fullName || 'Unknown User',
+          email: data.data.email || 'No email'
+        });
+      }
     } catch (error) {
       console.error('Error fetching user data:', error);
     }
@@ -234,6 +252,7 @@ const Dashboard = () => {
           <li><Link to="/pos"><FaShoppingCart /> <span>Orders</span></Link></li>
           <li><Link to="/CustomerManagement"><FaUsers /> <span>Customers</span></Link></li>
           <li><Link to="/Reportingpage"><FaFolder /> <span>Reports</span></Link></li>
+          <li><Link to="/admin/add-user"><FaUserPlus /> <span>Add User</span></Link></li>
         </ul>
       </div>
 

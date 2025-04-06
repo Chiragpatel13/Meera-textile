@@ -15,6 +15,7 @@ import Profile from './pages/Profile';
 import POS from './pages/POS';
 import CustomerManagement from './pages/CustomerManagement';
 import Reportingpage from './pages/Reportingpage';
+import AddUser from './pages/AddUser';
 
 import Layout from './components/Layout';
 import ProtectedRoute from './components/ProtectedRoute';
@@ -31,6 +32,7 @@ function App() {
         {/* Protected Routes */}
         <Route path="/" element={<ProtectedRoute><Navigate to="/admin/dashboard" /></ProtectedRoute>} />
         <Route path="/admin/dashboard" element={<ProtectedRoute><Dashboard /></ProtectedRoute>} />
+        <Route path="/admin/add-user" element={<ProtectedRoute><AddUser /></ProtectedRoute>} />
         <Route path="/UserManagement" element={<ProtectedRoute><UserManagement /></ProtectedRoute>} />
         <Route path="/Profile" element={<ProtectedRoute><Profile /></ProtectedRoute>} />
         <Route path="/pos" element={<ProtectedRoute><POS /></ProtectedRoute>} />

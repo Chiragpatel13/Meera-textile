@@ -46,6 +46,8 @@ import {
 import { Link } from "react-router-dom";
 import '../styles/dashboard.css';
 
+const API_BASE_URL = 'http://localhost:8082/api';
+
 const CustomerManagement = () => {
   const navigate = useNavigate();
   const [customers, setCustomers] = useState([]);
@@ -61,8 +63,8 @@ const CustomerManagement = () => {
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
   const [userMenuOpen, setUserMenuOpen] = useState(false);
   const [userData, setUserData] = useState({
-    name: 'John Doe',
-    email: 'john.doe@example.com'
+    name: '',
+    email: ''
   });
   
   // Form states
@@ -154,8 +156,29 @@ const CustomerManagement = () => {
   
   const fetchUserData = async () => {
     try {
-      // In a real app, this would be a fetch to your API
-      // For now, we're using the dummy data from the original code
+      const token = localStorage.getItem('token');
+      if (!token) {
+        console.error('No authentication token found');
+        return;
+      }
+
+      const response = await fetch(`${API_BASE_URL}/admin/users/current`, {
+        headers: {
+          'Authorization': `Bearer ${token}`
+        }
+      });
+
+      if (!response.ok) {
+        throw new Error('Failed to fetch user data');
+      }
+
+      const data = await response.json();
+      if (data.success && data.data) {
+        setUserData({
+          name: data.data.fullName || 'Unknown User',
+          email: data.data.email || 'No email'
+        });
+      }
     } catch (error) {
       console.error('Error fetching user data:', error);
     }

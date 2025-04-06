@@ -40,6 +40,8 @@ import {
 import { AiFillIdcard } from 'react-icons/ai';
 import '../styles/dashboard.css';
 
+const API_BASE_URL = 'http://localhost:8082/api';
+
 const InventoryManagement = () => {
   // State management
   const [skus, setSkus] = useState([]);
@@ -53,8 +55,8 @@ const InventoryManagement = () => {
   const [userMenuOpen, setUserMenuOpen] = useState(false);
   const [showLowStock, setShowLowStock] = useState(false);
   const [userData, setUserData] = useState({
-    name: 'John Doe',
-    email: 'john.doe@example.com'
+    name: '',
+    email: ''
   });
   
   // Form states
@@ -119,10 +121,29 @@ const InventoryManagement = () => {
 
   const fetchUserData = async () => {
     try {
-      // In a real app, this would be an actual API call
-      // const response = await fetch('/api/user/profile');
-      // const data = await response.json();
-      // setUserData(data);
+      const token = localStorage.getItem('token');
+      if (!token) {
+        console.error('No authentication token found');
+        return;
+      }
+
+      const response = await fetch(`${API_BASE_URL}/admin/users/current`, {
+        headers: {
+          'Authorization': `Bearer ${token}`
+        }
+      });
+
+      if (!response.ok) {
+        throw new Error('Failed to fetch user data');
+      }
+
+      const data = await response.json();
+      if (data.success && data.data) {
+        setUserData({
+          name: data.data.fullName || 'Unknown User',
+          email: data.data.email || 'No email'
+        });
+      }
     } catch (error) {
       console.error('Error fetching user data:', error);
     }

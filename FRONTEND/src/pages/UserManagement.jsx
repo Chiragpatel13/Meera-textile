@@ -33,11 +33,16 @@ import {
   FaKey,
   FaEdit,
   FaTrash,
-  FaSearch
+  FaSearch,
+  FaUserPlus,
+  FaEye,
+  FaEyeSlash
 } from 'react-icons/fa';
 import { Link, useNavigate } from 'react-router-dom';
 import { AiFillIdcard } from 'react-icons/ai';
 import '../styles/dashboard.css';
+
+const API_BASE_URL = 'http://localhost:8082/api';
 
 const UserManagement = () => {
   const navigate = useNavigate();
@@ -53,9 +58,10 @@ const UserManagement = () => {
   const [userMenuOpen, setUserMenuOpen] = useState(false);
   const [formData, setFormData] = useState({
     username: '',
+    fullName: '',
     email: '',
     password: '',
-    role: ''
+    role: 'SALES_STAFF'
   });
   const [formErrors, setFormErrors] = useState({});
   const [isEditing, setIsEditing] = useState(false);
@@ -68,6 +74,9 @@ const UserManagement = () => {
   });
   const [searchTerm, setSearchTerm] = useState('');
   const [filteredUsers, setFilteredUsers] = useState([]);
+  const [showPassword, setShowPassword] = useState(false);
+  const [error, setError] = useState('');
+  const [successMessage, setSuccessMessage] = useState('');
 
   useEffect(() => {
     fetchUsers();
@@ -88,40 +97,60 @@ const UserManagement = () => {
   }, [searchTerm, users]);
 
   const fetchUsers = async () => {
-    setLoading(true);
     try {
-      // Uncomment when API is ready
-      // const response = await fetch('/api/admin/users');
-      // const data = await response.json();
-      // setUsers(data);
+      const response = await fetch(`${API_BASE_URL}/admin/users`, {
+        headers: {
+          'Authorization': `Bearer ${localStorage.getItem('token')}`
+        }
+      });
       
-      // Mock data for now
-      const mockData = [
+      let responseData;
+      try {
+        responseData = await response.json();
+      } catch (e) {
+        responseData = { success: false, message: 'Failed to parse server response' };
+      }
       
-      ];
-      setUsers(mockData);
-      setFilteredUsers(mockData);
+      if (!response.ok || !responseData.success) {
+        throw new Error(responseData.message || 'Failed to fetch users');
+      }
+      
+      setUsers(responseData.data || []);
     } catch (error) {
       console.error('Error fetching users:', error);
       setToast({
         open: true,
-        message: 'Failed to load users',
+        message: error.message || 'Failed to fetch users',
         severity: 'error'
       });
-    } finally {
-      setLoading(false);
     }
   };
 
   const fetchUserData = async () => {
     try {
-      // Fetch user data from the backend
-      // Uncomment and modify this when your API is ready
-      /*
-      const userResponse = await fetch('/api/user/profile');
-      const userData = await userResponse.json();
-      setUserData(userData);
-      */
+      const token = localStorage.getItem('token');
+      if (!token) {
+        console.error('No authentication token found');
+        return;
+      }
+
+      const response = await fetch(`${API_BASE_URL}/admin/users/current`, {
+        headers: {
+          'Authorization': `Bearer ${token}`
+        }
+      });
+
+      if (!response.ok) {
+        throw new Error('Failed to fetch user data');
+      }
+
+      const data = await response.json();
+      if (data.success && data.data) {
+        setUserData({
+          name: data.data.fullName || 'Unknown User',
+          email: data.data.email || 'No email'
+        });
+      }
     } catch (error) {
       console.error('Error fetching user data:', error);
     }
@@ -171,20 +200,20 @@ const UserManagement = () => {
   const handleOpenModal = (isEdit = false, user = null) => {
     setIsEditing(isEdit);
     if (isEdit && user) {
-      setEditUserId(user.id);
+      setEditUserId(user.userId);
       setFormData({
         username: user.username,
+        fullName: user.fullName,
         email: user.email,
-        password: '', // Don't populate password for security
         role: user.role
       });
     } else {
       // Reset form for add
       setFormData({
         username: '',
+        fullName: '',
         email: '',
-        password: '',
-        role: ''
+        role: 'SALES_STAFF'
       });
     }
     setFormErrors({});
@@ -195,9 +224,9 @@ const UserManagement = () => {
     setOpenModal(false);
     setFormData({
       username: '',
+      fullName: '',
       email: '',
-      password: '',
-      role: ''
+      role: 'SALES_STAFF'
     });
     setFormErrors({});
   };
@@ -220,133 +249,189 @@ const UserManagement = () => {
 
   const validateForm = () => {
     const errors = {};
-    if (!formData.username.trim()) {
-      errors.username = 'Username is required';
+    
+    // Username validation
+    if (!formData.username?.trim()) {
+        errors.username = 'Username is required';
+    } else if (formData.username.trim().length < 3) {
+        errors.username = 'Username must be at least 3 characters';
     }
     
-    if (!formData.email.trim()) {
-      errors.email = 'Email is required';
-    } else if (!/\S+@\S+\.\S+/.test(formData.email)) {
-      errors.email = 'Email is invalid';
+    // Full name validation
+    if (!formData.fullName?.trim()) {
+        errors.fullName = 'Full name is required';
     }
     
-    if (!isEditing && !formData.password) {
-      errors.password = 'Password is required';
-    } else if (formData.password && formData.password.length < 8) {
-      errors.password = 'Password must be at least 8 characters';
+    // Email validation
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (!formData.email?.trim()) {
+        errors.email = 'Email is required';
+    } else if (!emailRegex.test(formData.email.trim())) {
+        errors.email = 'Please enter a valid email address';
     }
     
+    // Role validation
     if (!formData.role) {
-      errors.role = 'Role is required';
+        errors.role = 'Role is required';
+    }
+    
+    // Password validation (only for new users)
+    if (!isEditing && formData.password?.trim().length < 8) {
+        errors.password = 'Password must be at least 8 characters';
     }
     
     return errors;
   };
 
-  const handleSubmit = async () => {
-    const errors = validateForm();
-    if (Object.keys(errors).length > 0) {
-      setFormErrors(errors);
-      return;
-    }
-
+  const handleSaveUser = async () => {
     try {
-      if (isEditing) {
-        // Edit user
-        // Uncomment when API is ready
-        /* 
-        const response = await fetch(`/api/admin/users/${editUserId}`, {
-          method: 'PUT',
-          headers: {
-            'Content-Type': 'application/json',
-          },
-          body: JSON.stringify(formData),
-        });
-        
-        if (!response.ok) {
-          const errorData = await response.json();
-          throw new Error(errorData.message || 'Failed to update user');
+        // Validate form
+        const errors = validateForm();
+        if (Object.keys(errors).length > 0) {
+            setFormErrors(errors);
+            setToast({
+                open: true,
+                message: 'Please fill in all required fields correctly',
+                severity: 'error'
+            });
+            return;
         }
-        */
-        
-        // Update local state (mock)
-        const updatedUsers = users.map(user => {
-          if (user.id === editUserId) {
-            return {
-              ...user,
-              username: formData.username,
-              email: formData.email,
-              role: formData.role
-            };
-          }
-          return user;
-        });
-        
-        setUsers(updatedUsers);
-        setToast({
-          open: true,
-          message: 'User updated successfully',
-          severity: 'success'
-        });
-      } else {
-        // Add user
-        // Uncomment when API is ready
-        /*
-        const response = await fetch('/api/admin/users', {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-          },
-          body: JSON.stringify(formData),
-        });
-        
-        if (!response.ok) {
-          const errorData = await response.json();
-          throw new Error(errorData.message || 'Failed to create user');
-        }
-        
-        const newUser = await response.json();
-        */
-        
-        // Add to local state (mock)
-        const newUser = {
-          id: users.length + 1,
-          username: formData.username,
-          email: formData.email,
-          role: formData.role,
-          createdAt: new Date().toISOString().split('T').join(' ').substring(0, 16)
+
+        // Create request data
+        const requestData = {
+            username: formData.username.trim(),
+            fullName: formData.fullName.trim(),
+            email: formData.email.trim(),
+            role: formData.role
         };
+
+        // Only include password if it's provided (for new users or password changes)
+        if (formData.password && formData.password.trim()) {
+            requestData.password = formData.password.trim();
+        }
+
+        console.log('Sending request data:', requestData);
+
+        const token = localStorage.getItem('token');
+        if (!token) {
+            setToast({
+                open: true,
+                message: 'Authentication token not found. Please login again.',
+                severity: 'error'
+            });
+            return;
+        }
+
+        // Log the full request details for debugging
+        console.log('API URL:', `${API_BASE_URL}/admin/users`);
+        console.log('Request headers:', {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${token.substring(0, 10)}...` // Only log part of the token for security
+        });
+        console.log('Request body:', JSON.stringify(requestData, null, 2));
+
+        const response = await fetch(`${API_BASE_URL}/admin/users`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'Authorization': `Bearer ${token}`
+            },
+            body: JSON.stringify(requestData)
+        });
+
+        console.log('Response status:', response.status);
+        console.log('Response headers:', Object.fromEntries([...response.headers]));
         
-        setUsers([...users, newUser]);
+        const responseText = await response.text();
+        console.log('Raw response:', responseText);
+
+        let data;
+        try {
+            data = JSON.parse(responseText);
+            console.log('Parsed response data:', data);
+        } catch (parseError) {
+            console.error('Error parsing response:', parseError);
+            console.error('Response text that failed to parse:', responseText);
+            setToast({
+                open: true,
+                message: `Invalid response from server: ${parseError.message}. Please check server logs.`,
+                severity: 'error'
+            });
+            return;
+        }
+
+        if (!response.ok) {
+            console.error('Error response:', data);
+            if (data.message) {
+                if (data.message.includes('already taken')) {
+                    setFormErrors({ username: 'Username is already taken' });
+                    setToast({
+                        open: true,
+                        message: 'Username is already taken',
+                        severity: 'error'
+                    });
+                } else if (data.message.includes('already registered')) {
+                    setFormErrors({ email: 'Email is already registered' });
+                    setToast({
+                        open: true,
+                        message: 'Email is already registered',
+                        severity: 'error'
+                    });
+                } else if (data.message.includes('Role must be either SALES_STAFF or INVENTORY_STAFF')) {
+                    setFormErrors({ role: 'Invalid role selected' });
+                    setToast({
+                        open: true,
+                        message: 'Invalid role selected. Must be either SALES_STAFF or INVENTORY_STAFF',
+                        severity: 'error'
+                    });
+                } else {
+                    setToast({
+                        open: true,
+                        message: data.message || 'Failed to save user',
+                        severity: 'error'
+                    });
+                }
+            } else {
+                setToast({
+                    open: true,
+                    message: `Failed to save user. Server returned status ${response.status}. Please check server logs.`,
+                    severity: 'error'
+                });
+            }
+            return;
+        }
+
+        // Show success message
         setToast({
-          open: true,
-          message: 'User created successfully',
-          severity: 'success'
+            open: true,
+            message: 'User created successfully! A password has been sent to their email.',
+            severity: 'success'
         });
-      }
-      
-      handleCloseModal();
-    } catch (error) {
-      console.error('Error saving user:', error);
-      
-      // Handle validation errors from API
-      if (error.message.includes('already taken') && error.message.includes('email')) {
-        setFormErrors({
-          ...formErrors,
-          email: 'Email is already taken'
+        
+        // Refresh the users list
+        await fetchUsers();
+        
+        // Close modal and clear form
+        handleCloseModal();
+        setFormData({
+            username: '',
+            fullName: '',
+            email: '',
+            password: '',
+            role: 'SALES_STAFF'
         });
-      } else if (error.message.includes('already taken') && error.message.includes('username')) {
-        setFormErrors({
-          ...formErrors,
-          username: 'Username is already taken'
+    } catch (err) {
+        console.error('Error in handleSaveUser:', err);
+        console.error('Error details:', {
+            name: err.name,
+            message: err.message,
+            stack: err.stack
         });
-      } else {
         setToast({
-          open: true,
-          message: error.message || 'Failed to save user',
-          severity: 'error'
+            open: true,
+            message: `Error: ${err.message}. Please check server logs.`,
+            severity: 'error'
         });
-      }
     }
   };
 
@@ -364,33 +449,30 @@ const UserManagement = () => {
     if (!userToDelete) return;
     
     try {
-      // Uncomment when API is ready
-      /*
-      const response = await fetch(`/api/admin/users/${userToDelete.id}`, {
-        method: 'DELETE',
+      const response = await fetch(`${API_BASE_URL}/admin/users/${userToDelete.userId}/deactivate`, {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${localStorage.getItem('token')}`
+        }
       });
       
       if (!response.ok) {
-        throw new Error('Failed to delete user');
+        throw new Error('Failed to deactivate user');
       }
-      */
       
-      // Update local state
-      const updatedUsers = users.filter(user => user.id !== userToDelete.id);
-      setUsers(updatedUsers);
-      
+      await fetchUsers(); // Refresh the user list
       setToast({
         open: true,
-        message: 'User deleted successfully',
+        message: 'User deactivated successfully',
         severity: 'success'
       });
       
       handleCloseDeleteDialog();
     } catch (error) {
-      console.error('Error deleting user:', error);
+      console.error('Error deactivating user:', error);
       setToast({
         open: true,
-        message: error.message || 'Failed to delete user',
+        message: error.message || 'Failed to deactivate user',
         severity: 'error'
       });
     }
@@ -403,16 +485,58 @@ const UserManagement = () => {
     });
   };
 
+  const handleActivateUser = async (user) => {
+    try {
+      const response = await fetch(`${API_BASE_URL}/admin/users/${user.userId}/activate`, {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${localStorage.getItem('token')}`
+        }
+      });
+      
+      if (!response.ok) {
+        throw new Error('Failed to activate user');
+      }
+      
+      await fetchUsers(); // Refresh the user list
+      setToast({
+        open: true,
+        message: 'User activated successfully',
+        severity: 'success'
+      });
+    } catch (error) {
+      console.error('Error activating user:', error);
+      setToast({
+        open: true,
+        message: error.message || 'Failed to activate user',
+        severity: 'error'
+      });
+    }
+  };
+
   const columns = [
-    { field: 'id', headerName: 'ID', width: 70 },
+    { field: 'userId', headerName: 'ID', width: 70 },
     { field: 'username', headerName: 'Username', width: 180 },
+    { field: 'fullName', headerName: 'Full Name', width: 180 },
     { field: 'email', headerName: 'Email', width: 240 },
     { field: 'role', headerName: 'Role', width: 160 },
-    { field: 'createdAt', headerName: 'Created At', width: 180 },
+    { field: 'isActive', headerName: 'Status', width: 120, 
+      renderCell: (params) => (
+        <span style={{ color: params.value ? 'green' : 'red' }}>
+          {params.value ? 'Active' : 'Inactive'}
+        </span>
+      )
+    },
+    { field: 'createdAt', headerName: 'Created At', width: 180,
+      valueFormatter: (params) => {
+        if (!params.value) return '';
+        return new Date(params.value).toLocaleString();
+      }
+    },
     {
       field: 'actions',
       headerName: 'Actions',
-      width: 120,
+      width: 180,
       sortable: false,
       renderCell: (params) => (
         <Box>
@@ -423,16 +547,26 @@ const UserManagement = () => {
           >
             <FaEdit />
           </IconButton>
-          <IconButton
-            size="small"
-            color="error"
-            onClick={() => handleOpenDeleteDialog(params.row)}
-          >
-            <FaTrash />
-          </IconButton>
+          {params.row.isActive ? (
+            <IconButton
+              size="small"
+              color="error"
+              onClick={() => handleOpenDeleteDialog(params.row)}
+            >
+              <FaTrash />
+            </IconButton>
+          ) : (
+            <IconButton
+              size="small"
+              color="success"
+              onClick={() => handleActivateUser(params.row)}
+            >
+              <FaUserPlus />
+            </IconButton>
+          )}
         </Box>
-      ),
-    },
+      )
+    }
   ];
 
   return (
@@ -551,6 +685,7 @@ const UserManagement = () => {
             <Box component="form" sx={{ mt: 2 }}>
               <TextField
                 fullWidth
+                required
                 margin="normal"
                 label="Username"
                 name="username"
@@ -559,9 +694,23 @@ const UserManagement = () => {
                 placeholder="e.g., jane_doe"
                 error={!!formErrors.username}
                 helperText={formErrors.username}
+                disabled={isEditing}
               />
               <TextField
                 fullWidth
+                required
+                margin="normal"
+                label="Full Name"
+                name="fullName"
+                value={formData.fullName}
+                onChange={handleInputChange}
+                placeholder="e.g., Jane Doe"
+                error={!!formErrors.fullName}
+                helperText={formErrors.fullName}
+              />
+              <TextField
+                fullWidth
+                required
                 margin="normal"
                 label="Email"
                 name="email"
@@ -577,14 +726,28 @@ const UserManagement = () => {
                 margin="normal"
                 label={isEditing ? "Password (leave blank to keep current)" : "Password"}
                 name="password"
-                type="password"
+                type={showPassword ? "text" : "password"}
                 value={formData.password}
                 onChange={handleInputChange}
                 placeholder={isEditing ? "Leave blank to keep current password" : "Minimum 8 characters"}
                 error={!!formErrors.password}
                 helperText={formErrors.password}
+                required={!isEditing}
+                InputProps={{
+                  endAdornment: (
+                    <InputAdornment position="end">
+                      <IconButton
+                        aria-label="toggle password visibility"
+                        onClick={() => setShowPassword(!showPassword)}
+                        edge="end"
+                      >
+                        {showPassword ? <FaEyeSlash /> : <FaEye />}
+                      </IconButton>
+                    </InputAdornment>
+                  ),
+                }}
               />
-              <FormControl fullWidth margin="normal" error={!!formErrors.role}>
+              <FormControl fullWidth margin="normal" error={!!formErrors.role} required>
                 <InputLabel>Role</InputLabel>
                 <Select
                   name="role"
@@ -606,21 +769,21 @@ const UserManagement = () => {
           </DialogContent>
           <DialogActions>
             <Button onClick={handleCloseModal} variant="outlined">Cancel</Button>
-            <Button onClick={handleSubmit} variant="contained" color="primary">Save</Button>
+            <Button onClick={handleSaveUser} variant="contained" color="primary">Save</Button>
           </DialogActions>
         </Dialog>
 
         {/* Delete Confirmation Dialog */}
         <Dialog open={openDeleteDialog} onClose={handleCloseDeleteDialog}>
-          <DialogTitle>Confirm Delete</DialogTitle>
+          <DialogTitle>Confirm Deactivation</DialogTitle>
           <DialogContent>
             <Typography>
-              Are you sure you want to delete {userToDelete?.username}?
+              Are you sure you want to deactivate {userToDelete?.username}? The user will no longer be able to access the system.
             </Typography>
           </DialogContent>
           <DialogActions>
-            <Button onClick={handleCloseDeleteDialog} variant="outlined">No</Button>
-            <Button onClick={handleDeleteUser} variant="contained" color="error">Yes</Button>
+            <Button onClick={handleCloseDeleteDialog} variant="outlined">Cancel</Button>
+            <Button onClick={handleDeleteUser} variant="contained" color="error">Deactivate</Button>
           </DialogActions>
         </Dialog>
 

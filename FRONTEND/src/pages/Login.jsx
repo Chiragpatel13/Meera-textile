@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { FaEye, FaEyeSlash } from 'react-icons/fa';
 import { Link, useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
+import { login } from '../services/api';
 import '../styles/Auth.css';
 
 const Login = () => {
@@ -10,7 +11,7 @@ const Login = () => {
   const [showPassword, setShowPassword] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const navigate = useNavigate();
-  const { login } = useAuth();
+  const { login: authLogin } = useAuth();
 
   const handleChange = (e) => {
     const { name, value } = e.target;
@@ -50,72 +51,39 @@ const Login = () => {
     try {
       console.log('Attempting login with:', { username: credentials.username });
       
-      const response = await fetch('http://localhost:8080/api/auth/login', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Accept': 'application/json'
-        },
-        body: JSON.stringify({
-          username: credentials.username,
-          password: credentials.password
-        })
-      });
+      const response = await login(credentials);
       
-      console.log('Response status:', response.status);
-      console.log('Response headers:', Object.fromEntries(response.headers.entries()));
-      
-      let data;
-      const contentType = response.headers.get('content-type');
-      
-      try {
-        data = await response.json();
-        console.log('Response data:', data);
-      } catch (parseError) {
-        console.error('Error parsing response:', parseError);
-        const text = await response.text();
-        console.log('Raw response:', text);
-        throw new Error('Failed to parse server response');
+      if (!response.token) {
+        throw new Error('Authentication failed - no token received');
       }
       
-      if (response.ok) {
-        if (!data.token) {
-          console.error('No token in response:', data);
-          throw new Error('Authentication failed - no token received');
-        }
-        
-        localStorage.setItem('token', data.token);
-        console.log('Token stored successfully');
-        
-        if (!data.role) {
-          console.error('No role in response:', data);
-          throw new Error('Authentication failed - no role received');
-        }
-        
-        login({
-          role: data.role,
-          username: credentials.username
-        });
-        
-        console.log('User logged in with role:', data.role);
-        
-        switch (data.role) {
-          case 'STORE_MANAGER':
-            navigate('/admin/dashboard', { replace: true });
-            break;
-          case 'SALES_STAFF':
-            navigate('/sales/pos', { replace: true });
-            break;
-          case 'INVENTORY_STAFF':
-            navigate('/inventory/manage', { replace: true });
-            break;
-          default:
-            console.warn('Unknown role:', data.role);
-            navigate('/dashboard', { replace: true });
-        }
-      } else {
-        console.error('Login failed:', data);
-        setError(data.message || 'Invalid username or password');
+      localStorage.setItem('token', response.token);
+      console.log('Token stored successfully');
+      
+      if (!response.role) {
+        throw new Error('Authentication failed - no role received');
+      }
+      
+      authLogin({
+        role: response.role,
+        username: credentials.username
+      });
+      
+      console.log('User logged in with role:', response.role);
+      
+      switch (response.role) {
+        case 'STORE_MANAGER':
+          navigate('/admin/dashboard', { replace: true });
+          break;
+        case 'SALES_STAFF':
+          navigate('/sales/pos', { replace: true });
+          break;
+        case 'INVENTORY_STAFF':
+          navigate('/inventory/manage', { replace: true });
+          break;
+        default:
+          console.warn('Unknown role:', response.role);
+          navigate('/dashboard', { replace: true });
       }
     } catch (error) {
       console.error('Login error:', error);

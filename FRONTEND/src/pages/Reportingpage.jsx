@@ -46,6 +46,8 @@ ChartJS.register(
   Legend
 );
 
+const API_BASE_URL = 'http://localhost:8082/api';
+
 const Reports = () => {
   // Tab state
   const [tabValue, setTabValue] = useState('1');
@@ -64,6 +66,10 @@ const Reports = () => {
   const [inventoryData, setInventoryData] = useState([]);
   const [cashReconciliationData, setCashReconciliationData] = useState([]);
   const [showLowStockOnly, setShowLowStockOnly] = useState(false);
+  const [userData, setUserData] = useState({
+    name: '',
+    email: ''
+  });
   
   // Loading states
   const [loadingSales, setLoadingSales] = useState(false);
@@ -126,11 +132,42 @@ const Reports = () => {
     }
   };
   
+  const fetchUserData = async () => {
+    try {
+      const token = localStorage.getItem('token');
+      if (!token) {
+        console.error('No authentication token found');
+        return;
+      }
+
+      const response = await fetch(`${API_BASE_URL}/admin/users/current`, {
+        headers: {
+          'Authorization': `Bearer ${token}`
+        }
+      });
+
+      if (!response.ok) {
+        throw new Error('Failed to fetch user data');
+      }
+
+      const data = await response.json();
+      if (data.success && data.data) {
+        setUserData({
+          name: data.data.fullName || 'Unknown User',
+          email: data.data.email || 'No email'
+        });
+      }
+    } catch (error) {
+      console.error('Error fetching user data:', error);
+    }
+  };
+  
   // Initial data loading
   useEffect(() => {
     fetchSalesData();
     fetchInventoryData();
     fetchCashReconciliationData();
+    fetchUserData();
   }, []);
   
   // Refetch sales data when date range changes
