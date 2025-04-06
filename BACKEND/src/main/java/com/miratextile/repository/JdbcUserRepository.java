@@ -144,7 +144,7 @@ public class JdbcUserRepository implements UserRepository {
     public void createAdminUser(String username, String fullName, String email, String passwordHash) {
         String sql = """
         INSERT INTO users (username, full_name, email, password_hash, role, is_active, created_at)
-        VALUES (?, ?, ?, ?, 'ADMIN', true, CURRENT_TIMESTAMP)
+        VALUES (?, ?, ?, ?, 'STORE_MANAGER', true, CURRENT_TIMESTAMP)
         ON CONFLICT (username) DO NOTHING
     """;
 
