@@ -50,16 +50,22 @@ const Profile = () => {
     try {
       const token = localStorage.getItem('token');
       if (!token) {
-        console.error('No authentication token found');
-        setIsLoading(false);
+        navigate('/Login');
         return;
       }
 
       const response = await fetch(`${API_BASE_URL}/admin/users/current`, {
         headers: {
-          'Authorization': `Bearer ${token}`
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json'
         }
       });
+      
+      if (response.status === 403 || response.status === 401) {
+        localStorage.removeItem('token');
+        navigate('/Login');
+        return;
+      }
       
       if (!response.ok) {
         throw new Error('Failed to fetch profile data');
@@ -73,9 +79,8 @@ const Profile = () => {
           password: ''
         });
         
-        // Also update the userData state for the user menu
         setUserData({
-          name: data.data.fullName || 'Unknown User',
+          name: data.data.fullName || data.data.username || 'Unknown User',
           email: data.data.email || 'No email'
         });
       }
@@ -91,15 +96,22 @@ const Profile = () => {
     try {
       const token = localStorage.getItem('token');
       if (!token) {
-        console.error('No authentication token found');
+        navigate('/Login');
         return;
       }
 
       const response = await fetch(`${API_BASE_URL}/admin/users/current`, {
         headers: {
-          'Authorization': `Bearer ${token}`
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json'
         }
       });
+
+      if (response.status === 403 || response.status === 401) {
+        localStorage.removeItem('token');
+        navigate('/Login');
+        return;
+      }
 
       if (!response.ok) {
         throw new Error('Failed to fetch user data');
@@ -108,7 +120,7 @@ const Profile = () => {
       const data = await response.json();
       if (data.success && data.data) {
         setUserData({
-          name: data.data.fullName || 'Unknown User',
+          name: data.data.fullName || data.data.username || 'Unknown User',
           email: data.data.email || 'No email'
         });
       }
@@ -166,12 +178,14 @@ const Profile = () => {
     try {
       const token = localStorage.getItem('token');
       if (!token) {
-        throw new Error('No authentication token found');
+        navigate('/Login');
+        return;
       }
       
-      // Create request payload (only include password if it's not empty)
+      // Create request payload
       const payload = {
-        email: formData.email
+        email: formData.email,
+        username: formData.username
       };
       
       if (formData.password) {
@@ -187,25 +201,35 @@ const Profile = () => {
         body: JSON.stringify(payload)
       });
       
+      if (response.status === 403 || response.status === 401) {
+        localStorage.removeItem('token');
+        navigate('/Login');
+        return;
+      }
+      
       if (!response.ok) {
-        throw new Error('Failed to update profile');
+        const errorData = await response.json();
+        throw new Error(errorData.message || 'Failed to update profile');
       }
       
       const data = await response.json();
       if (data.success) {
         // Reset password field
-        setFormData({
-          ...formData,
+        setFormData(prev => ({
+          ...prev,
           password: ''
-        });
+        }));
         
         // Update user data in the menu
         setUserData({
-          name: data.data.fullName || userData.name,
+          name: data.data.fullName || data.data.username || userData.name,
           email: data.data.email || userData.email
         });
         
         showToast('Profile updated successfully', 'success');
+        
+        // Refresh the profile data
+        await fetchProfileData();
       } else {
         throw new Error(data.message || 'Failed to update profile');
       }
