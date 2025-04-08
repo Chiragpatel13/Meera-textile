@@ -225,26 +225,31 @@
   }
   
   .user-menu-btn {
-    background: linear-gradient(to right, rgba(44, 62, 80, 0.1), rgba(44, 62, 80, 0.2));
-    border: 1px solid rgba(44, 62, 80, 0.2);
-    color: #2c3e50;
+    background: linear-gradient(135deg, #4b6cb7 0%, #182848 100%);
+    border: 2px solid rgba(255, 255, 255, 0.1);
+    color: #ffffff;
     cursor: pointer;
-    font-size: 24px;
+    font-size: 22px;
     padding: 8px;
     border-radius: 50%;
-    transition: all 0.3s;
-    width: 42px;
-    height: 42px;
+    transition: all 0.3s ease;
+    width: 45px;
+    height: 45px;
     display: flex;
     align-items: center;
     justify-content: center;
-    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05);
+    box-shadow: 0 4px 15px rgba(0, 0, 0, 0.1);
   }
   
   .user-menu-btn:hover {
-    background: linear-gradient(to right, rgba(44, 62, 80, 0.2), rgba(44, 62, 80, 0.3));
-    box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
     transform: translateY(-2px);
+    box-shadow: 0 6px 20px rgba(75, 108, 183, 0.2);
+    border-color: rgba(255, 255, 255, 0.2);
+  }
+  
+  .user-menu-btn:active {
+    transform: translateY(0);
+    box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
   }
   
   /* User popup styles */
@@ -320,6 +325,9 @@
   
   .user-actions {
     padding: 15px;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
   }
   
   .user-actions button {
@@ -335,7 +343,6 @@
     color: #444;
     border-radius: 6px;
     transition: all 0.2s;
-    margin-bottom: 10px;
     text-align: left;
   }
   
@@ -364,7 +371,6 @@
     color: #e53935 !important;
     border-top: 1px solid rgba(0, 0, 0, 0.05) !important;
     padding-top: 15px !important;
-    margin-top: 5px !important;
   }
   
   .logout-btn:hover {
