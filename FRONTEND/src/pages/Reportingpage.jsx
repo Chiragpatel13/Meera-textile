@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Link } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import { TabContext, TabList, TabPanel } from '@mui/lab';
 import { 
   Box, 
@@ -18,9 +18,11 @@ import {
 } from '@mui/material';
 import DatePicker from 'react-datepicker';
 import "react-datepicker/dist/react-datepicker.css";
-import { Chart as ChartJS, CategoryScale, LinearScale, BarElement, Title, Tooltip, Legend } from 'chart.js';
-import { Bar } from 'react-chartjs-2';
+import { Chart as ChartJS, CategoryScale, LinearScale, PointElement, LineElement, BarElement, ArcElement, Title, Tooltip, Legend } from 'chart.js';
+import { Bar, Line, Pie } from 'react-chartjs-2';
 import { CSVLink } from 'react-csv';
+import { jsPDF } from 'jspdf';
+import 'jspdf-autotable';
 import { 
   FaChartBar, 
   FaBox, 
@@ -32,216 +34,765 @@ import {
   FaUserCircle,
   FaSync,
   FaBars,
-  FaCalendarAlt
+  FaCalendarAlt,
+  FaSignOutAlt,
+  FaKey,
+  FaSearch,
+  FaDownload,
+  FaFileExcel,
+  FaFilePdf,
+  FaChartPie,
+  FaChartLine,
+  FaTable,
+  FaFilter,
+  FaHistory
 } from 'react-icons/fa';
+import { AiFillIdcard } from 'react-icons/ai';
 import '../styles/dashboard.css';
+import '../styles/pos.css';
+import LoadingAnimation from '../components/LoadingAnimation';
 
 // Register ChartJS components
 ChartJS.register(
   CategoryScale,
   LinearScale,
+  PointElement,
+  LineElement,
   BarElement,
+  ArcElement,
   Title,
   Tooltip,
   Legend
 );
 
-const API_BASE_URL = 'http://localhost:8082/api';
+// API Configuration
+const API_BASE_URL = process.env.REACT_APP_API_BASE_URL || 'http://localhost:8082/api';
+const API_CONFIG = {
+  ENDPOINTS: {
+    AUTH: {
+      LOGOUT: '/auth/logout'
+    }
+  },
+  TOKEN_KEY: 'auth_token'
+};
 
-const Reports = () => {
-  // Tab state
-  const [tabValue, setTabValue] = useState('1');
-  
-  // Sidebar state
+const Reportingpage = () => {
+  const navigate = useNavigate();
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
-  
-  // Date range states
-  const [salesStartDate, setSalesStartDate] = useState(new Date(new Date().setDate(new Date().getDate() - 30)));
-  const [salesEndDate, setSalesEndDate] = useState(new Date());
-  const [cashStartDate, setCashStartDate] = useState(new Date(new Date().setDate(new Date().getDate() - 30)));
-  const [cashEndDate, setCashEndDate] = useState(new Date());
-  
-  // Data states
-  const [salesData, setSalesData] = useState([]);
-  const [inventoryData, setInventoryData] = useState([]);
-  const [cashReconciliationData, setCashReconciliationData] = useState([]);
-  const [showLowStockOnly, setShowLowStockOnly] = useState(false);
-  const [userData, setUserData] = useState({
-    name: '',
-    email: ''
+  const [userMenuOpen, setUserMenuOpen] = useState(false);
+  const [activeReportType, setActiveReportType] = useState('sales');
+  const [reportPeriod, setReportPeriod] = useState('month');
+  const [loading, setLoading] = useState(true);
+  const [userData] = useState({
+    name: 'Admin User',
+    email: 'admin@miratextile.com'
   });
-  
-  // Loading states
-  const [loadingSales, setLoadingSales] = useState(false);
-  const [loadingInventory, setLoadingInventory] = useState(false);
-  const [loadingCash, setLoadingCash] = useState(false);
+
+  // Mock data for demonstration
+  const salesData = {
+    labels: ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun'],
+    datasets: [
+      {
+        label: 'Sales',
+        data: [65000, 59000, 80000, 81000, 56000, 95000],
+        backgroundColor: 'rgba(75, 108, 183, 0.6)',
+        borderColor: 'rgba(75, 108, 183, 1)',
+        borderWidth: 1,
+      },
+    ],
+  };
+
+  const categorySalesData = {
+    labels: ['Shirts', 'Pants', 'Sarees', 'Kurtas', 'Fabric', 'Accessories'],
+    datasets: [
+      {
+        label: 'Sales by Category',
+        data: [35000, 25000, 42000, 30000, 18000, 12000],
+        backgroundColor: [
+          'rgba(75, 108, 183, 0.6)',
+          'rgba(54, 162, 235, 0.6)',
+          'rgba(255, 206, 86, 0.6)',
+          'rgba(75, 192, 192, 0.6)',
+          'rgba(153, 102, 255, 0.6)',
+          'rgba(255, 159, 64, 0.6)',
+        ],
+        borderColor: [
+          'rgba(75, 108, 183, 1)',
+          'rgba(54, 162, 235, 1)',
+          'rgba(255, 206, 86, 1)',
+          'rgba(75, 192, 192, 1)',
+          'rgba(153, 102, 255, 1)',
+          'rgba(255, 159, 64, 1)',
+        ],
+        borderWidth: 1,
+      },
+    ],
+  };
+
+  const profitMarginData = {
+    labels: ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun'],
+    datasets: [
+      {
+        label: 'Profit Margin (%)',
+        data: [25, 28, 32, 26, 29, 31],
+        fill: false,
+        backgroundColor: 'rgba(75, 192, 192, 0.6)',
+        borderColor: 'rgba(75, 192, 192, 1)',
+        tension: 0.4,
+      },
+    ],
+  };
+
+  const paymentMethodData = {
+    labels: ['Cash', 'Credit Card', 'UPI', 'Bank Transfer', 'Credit'],
+    datasets: [
+      {
+        label: 'Payment Methods',
+        data: [45, 25, 20, 5, 5],
+        backgroundColor: [
+          'rgba(75, 108, 183, 0.6)',
+          'rgba(54, 162, 235, 0.6)',
+          'rgba(255, 206, 86, 0.6)',
+          'rgba(75, 192, 192, 0.6)',
+          'rgba(153, 102, 255, 0.6)',
+        ],
+        borderColor: [
+          'rgba(75, 108, 183, 1)',
+          'rgba(54, 162, 235, 1)',
+          'rgba(255, 206, 86, 1)',
+          'rgba(75, 192, 192, 1)',
+          'rgba(153, 102, 255, 1)',
+        ],
+        borderWidth: 1,
+      },
+    ],
+  };
+
+  const inventoryData = {
+    labels: ['Shirts', 'Pants', 'Sarees', 'Kurtas', 'Fabric', 'Accessories'],
+    datasets: [
+      {
+        label: 'Current Stock',
+        data: [150, 120, 80, 95, 210, 175],
+        backgroundColor: 'rgba(75, 108, 183, 0.6)',
+        borderColor: 'rgba(75, 108, 183, 1)',
+        borderWidth: 1,
+      },
+      {
+        label: 'Reorder Level',
+        data: [50, 40, 30, 40, 60, 50],
+        backgroundColor: 'rgba(255, 99, 132, 0.6)',
+        borderColor: 'rgba(255, 99, 132, 1)',
+        borderWidth: 1,
+      },
+    ],
+  };
+
+  // Sample table data for different report types
+  const tableData = {
+    sales: [
+      { id: 1, date: '2024-05-01', orderCount: 23, total: 45000, profit: 12500 },
+      { id: 2, date: '2024-05-02', orderCount: 18, total: 36000, profit: 9800 },
+      { id: 3, date: '2024-05-03', orderCount: 27, total: 52000, profit: 14600 },
+      { id: 4, date: '2024-05-04', orderCount: 21, total: 41500, profit: 11200 },
+      { id: 5, date: '2024-05-05', orderCount: 19, total: 38000, profit: 10500 },
+    ],
+    inventory: [
+      { id: 1, category: 'Shirts', currentStock: 150, sold: 45, reorderLevel: 50, value: 75000 },
+      { id: 2, category: 'Pants', currentStock: 120, sold: 38, reorderLevel: 40, value: 84000 },
+      { id: 3, category: 'Sarees', currentStock: 80, sold: 22, reorderLevel: 30, value: 120000 },
+      { id: 4, category: 'Kurtas', currentStock: 95, sold: 31, reorderLevel: 40, value: 57000 },
+      { id: 5, category: 'Fabric', currentStock: 210, sold: 56, reorderLevel: 60, value: 63000 },
+    ],
+    customers: [
+      { id: 1, name: 'John Doe', purchases: 15, totalSpent: 45000, lastPurchase: '2024-05-02' },
+      { id: 2, name: 'Jane Smith', purchases: 22, totalSpent: 68000, lastPurchase: '2024-05-01' },
+      { id: 3, name: 'Bob Johnson', purchases: 8, totalSpent: 24000, lastPurchase: '2024-04-28' },
+      { id: 4, name: 'Alice Brown', purchases: 17, totalSpent: 51000, lastPurchase: '2024-05-03' },
+      { id: 5, name: 'Eva White', purchases: 12, totalSpent: 36000, lastPurchase: '2024-04-30' },
+    ]
+  };
+
+  useEffect(() => {
+    // Simulate loading data
+    setTimeout(() => {
+      setLoading(false);
+    }, 1000);
+  }, []);
   
   const toggleSidebar = () => {
     setSidebarCollapsed(!sidebarCollapsed);
   };
   
-  const handleTabChange = (event, newValue) => {
-    setTabValue(newValue);
+  const toggleUserMenu = () => {
+    setUserMenuOpen(!userMenuOpen);
   };
-  
-  // Fetch sales data based on date range
-  const fetchSalesData = async () => {
-    setLoadingSales(true);
-    try {
-      const formattedStartDate = salesStartDate.toISOString().split('T')[0];
-      const formattedEndDate = salesEndDate.toISOString().split('T')[0];
-      
-      const response = await fetch(`/api/reports/sales?startDate=${formattedStartDate}&endDate=${formattedEndDate}`);
-      const data = await response.json();
-      setSalesData(data);
-    } catch (error) {
-      console.error('Error fetching sales data:', error);
-    } finally {
-      setLoadingSales(false);
-    }
-  };
-  
-  // Fetch inventory data
-  const fetchInventoryData = async () => {
-    setLoadingInventory(true);
-    try {
-      const response = await fetch('/api/reports/inventory');
-      const data = await response.json();
-      setInventoryData(data);
-    } catch (error) {
-      console.error('Error fetching inventory data:', error);
-    } finally {
-      setLoadingInventory(false);
-    }
-  };
-  
-  // Fetch cash reconciliation data
-  const fetchCashReconciliationData = async () => {
-    setLoadingCash(true);
-    try {
-      const formattedStartDate = cashStartDate.toISOString().split('T')[0];
-      const formattedEndDate = cashEndDate.toISOString().split('T')[0];
-      
-      const response = await fetch(`/api/reports/cash-reconciliation?startDate=${formattedStartDate}&endDate=${formattedEndDate}`);
-      const data = await response.json();
-      setCashReconciliationData(data);
-    } catch (error) {
-      console.error('Error fetching cash reconciliation data:', error);
-    } finally {
-      setLoadingCash(false);
-    }
-  };
-  
-  const fetchUserData = async () => {
-    try {
-      const token = localStorage.getItem('token');
-      if (!token) {
-        console.error('No authentication token found');
-        return;
+
+  const handleLogout = () => {
+    if (window.confirm("Are you sure you want to logout?")) {
+      try {
+        // Optional: Try to call logout API endpoint
+        fetch(`${API_BASE_URL}${API_CONFIG.ENDPOINTS.AUTH.LOGOUT}`, {
+          method: 'POST',
+          headers: {
+            'Authorization': `Bearer ${localStorage.getItem(API_CONFIG.TOKEN_KEY)}`
+          }
+        }).catch(error => {
+          console.log('Logout API error (continuing with local logout):', error);
+        }).finally(() => {
+          // Always execute this code to ensure local logout occurs
+          localStorage.clear();
+          sessionStorage.clear();
+          navigate('/login');
+        });
+      } catch (error) {
+        // Fallback in case of any errors
+        console.log('Error during logout:', error);
+        localStorage.clear();
+        sessionStorage.clear();
+        navigate('/login');
       }
+    }
+  };
 
-      const response = await fetch(`${API_BASE_URL}/admin/users/current`, {
-        headers: {
-          'Authorization': `Bearer ${token}`
-        }
-      });
+  const handleResetPassword = () => {
+    navigate('/ResetPassword');
+  };
 
-      if (!response.ok) {
-        throw new Error('Failed to fetch user data');
-      }
+  const handleUser = () => {
+    navigate('/Profile');
+  };
+  
 
-      const data = await response.json();
-      if (data.success && data.data) {
-        setUserData({
-          name: data.data.fullName || 'Unknown User',
-          email: data.data.email || 'No email'
+  const handleReportTypeChange = (type) => {
+    setActiveReportType(type);
+  };
+
+  const handlePeriodChange = (e) => {
+    setReportPeriod(e.target.value);
+  };
+
+  const formatCurrency = (amount) => {
+    return new Intl.NumberFormat('en-IN', {
+      style: 'currency',
+      currency: 'INR'
+    }).format(amount);
+  };
+
+  // Prepare data for export
+  const prepareExportData = () => {
+    const currentData = tableData[activeReportType] || [];
+    
+    if (activeReportType === 'sales') {
+      return currentData.map(row => ({
+        'Date': row.date,
+        'Orders': row.orderCount,
+        'Total Sales': formatCurrency(row.total).replace('₹', ''),
+        'Profit': formatCurrency(row.profit).replace('₹', '')
+      }));
+    } else if (activeReportType === 'inventory') {
+      return currentData.map(row => ({
+        'Category': row.category,
+        'Current Stock': row.currentStock,
+        'Sold': row.sold,
+        'Reorder Level': row.reorderLevel,
+        'Stock Value': formatCurrency(row.value).replace('₹', '')
+      }));
+    } else if (activeReportType === 'customers') {
+      return currentData.map(row => ({
+        'Customer': row.name,
+        'Purchases': row.purchases,
+        'Total Spent': formatCurrency(row.totalSpent).replace('₹', ''),
+        'Last Purchase': row.lastPurchase
+      }));
+    }
+    
+    return [];
+  };
+
+  const exportToPdf = () => {
+    try {
+      // Simple approach without autoTable to avoid compatibility issues
+      const doc = new jsPDF();
+      
+      // Set title
+      doc.setFontSize(16);
+      doc.setTextColor(75, 108, 183);
+      doc.text(`${activeReportType.charAt(0).toUpperCase() + activeReportType.slice(1)} Report`, 15, 15);
+      
+      // Add date
+      doc.setFontSize(10);
+      doc.setTextColor(0, 0, 0);
+      doc.text(`Generated: ${new Date().toLocaleDateString()}`, 15, 25);
+      
+      const currentData = tableData[activeReportType] || [];
+      let yPos = 40;
+      
+      // Add table headers manually
+      doc.setFontSize(10);
+      doc.setTextColor(255, 255, 255);
+      doc.setFillColor(75, 108, 183);
+      
+      if (activeReportType === 'sales') {
+        doc.rect(15, yPos, 140, 10, 'F');
+        doc.setTextColor(255, 255, 255);
+        doc.text('Date', 20, yPos + 7);
+        doc.text('Orders', 50, yPos + 7);
+        doc.text('Total Sales', 80, yPos + 7);
+        doc.text('Profit', 120, yPos + 7);
+        
+        yPos += 15;
+        doc.setTextColor(0, 0, 0);
+        
+        // Add rows
+        currentData.forEach(row => {
+          doc.text(row.date, 20, yPos);
+          doc.text(row.orderCount.toString(), 50, yPos);
+          doc.text(formatCurrency(row.total).replace('₹', ''), 80, yPos);
+          doc.text(formatCurrency(row.profit).replace('₹', ''), 120, yPos);
+          yPos += 10;
+        });
+      } else if (activeReportType === 'inventory') {
+        doc.rect(15, yPos, 160, 10, 'F');
+        doc.setTextColor(255, 255, 255);
+        doc.text('Category', 20, yPos + 7);
+        doc.text('Stock', 60, yPos + 7);
+        doc.text('Sold', 85, yPos + 7);
+        doc.text('Reorder', 110, yPos + 7);
+        doc.text('Value', 140, yPos + 7);
+        
+        yPos += 15;
+        doc.setTextColor(0, 0, 0);
+        
+        // Add rows
+        currentData.forEach(row => {
+          doc.text(row.category, 20, yPos);
+          doc.text(row.currentStock.toString(), 60, yPos);
+          doc.text(row.sold.toString(), 85, yPos);
+          doc.text(row.reorderLevel.toString(), 110, yPos);
+          doc.text(formatCurrency(row.value).replace('₹', ''), 140, yPos);
+          yPos += 10;
+        });
+      } else if (activeReportType === 'customers') {
+        doc.rect(15, yPos, 160, 10, 'F');
+        doc.setTextColor(255, 255, 255);
+        doc.text('Customer', 20, yPos + 7);
+        doc.text('Purchases', 70, yPos + 7);
+        doc.text('Total Spent', 100, yPos + 7);
+        doc.text('Last Purchase', 135, yPos + 7);
+        
+        yPos += 15;
+        doc.setTextColor(0, 0, 0);
+        
+        // Add rows
+        currentData.forEach(row => {
+          doc.text(row.name, 20, yPos);
+          doc.text(row.purchases.toString(), 70, yPos);
+          doc.text(formatCurrency(row.totalSpent).replace('₹', ''), 100, yPos);
+          doc.text(row.lastPurchase, 135, yPos);
+          yPos += 10;
         });
       }
+      
+      // Add summary section
+      yPos += 10;
+      doc.setFontSize(12);
+      doc.setTextColor(75, 108, 183);
+      doc.text('Summary', 15, yPos);
+      
+      yPos += 10;
+      doc.setFontSize(10);
+      doc.setTextColor(0, 0, 0);
+      
+      if (activeReportType === 'sales') {
+        doc.text(`Total Sales: ${formatCurrency(436000)}`, 15, yPos);
+        doc.text(`Total Orders: 214`, 15, yPos + 7);
+        doc.text(`Average Order Value: ${formatCurrency(2037)}`, 15, yPos + 14);
+        doc.text(`Profit Margin: 28.4%`, 15, yPos + 21);
+      } else if (activeReportType === 'inventory') {
+        doc.text(`Total Stock Value: ${formatCurrency(399000)}`, 15, yPos);
+        doc.text(`Items in Stock: 830`, 15, yPos + 7);
+        doc.text(`Low Stock Items: 12`, 15, yPos + 14);
+        doc.text(`Out of Stock: 4`, 15, yPos + 21);
+      } else if (activeReportType === 'customers') {
+        doc.text(`Total Customers: 342`, 15, yPos);
+        doc.text(`Active Customers: 215`, 15, yPos + 7);
+        doc.text(`Average Customer Value: ${formatCurrency(12500)}`, 15, yPos + 14);
+        doc.text(`Customer Retention: 86%`, 15, yPos + 21);
+      }
+      
+      // Footer
+      doc.setFontSize(8);
+      doc.setTextColor(100, 100, 100);
+      doc.text('Mira Textile Report System', 15, 280);
+      
+      // Save PDF
+      doc.save(`${activeReportType}_report.pdf`);
     } catch (error) {
-      console.error('Error fetching user data:', error);
+      console.error('Error generating PDF:', error);
+      alert('There was an error generating the PDF. Please try again.');
     }
   };
-  
-  // Initial data loading
-  useEffect(() => {
-    fetchSalesData();
-    fetchInventoryData();
-    fetchCashReconciliationData();
-    fetchUserData();
-  }, []);
-  
-  // Refetch sales data when date range changes
-  useEffect(() => {
-    fetchSalesData();
-  }, [salesStartDate, salesEndDate]);
-  
-  // Refetch cash data when date range changes
-  useEffect(() => {
-    fetchCashReconciliationData();
-  }, [cashStartDate, cashEndDate]);
-  
-  // Prepare chart data for sales report
-  const chartData = {
-    labels: salesData ? salesData.map(item => item.date) : [],
-    datasets: [
-      {
-        label: 'Daily Sales',
-        data: salesData ? salesData.map(item => item.amount) : [],
-        backgroundColor: '#4CAF50',
-        borderColor: '#2E7D32',
-        borderWidth: 1
-      }
-    ]
+
+  const renderReportSummary = () => {
+    switch (activeReportType) {
+      case 'sales':
+        return (
+          <div className="report-summary">
+            <div className="summary-card">
+              <h3>Total Sales</h3>
+              <div className="summary-value">{formatCurrency(436000)}</div>
+              <div className="summary-change positive">+12.5% vs. last period</div>
+            </div>
+            <div className="summary-card">
+              <h3>Orders</h3>
+              <div className="summary-value">214</div>
+              <div className="summary-change positive">+8.2% vs. last period</div>
+            </div>
+            <div className="summary-card">
+              <h3>Average Order Value</h3>
+              <div className="summary-value">{formatCurrency(2037)}</div>
+              <div className="summary-change positive">+4.1% vs. last period</div>
+            </div>
+            <div className="summary-card">
+              <h3>Profit Margin</h3>
+              <div className="summary-value">28.4%</div>
+              <div className="summary-change negative">-1.2% vs. last period</div>
+            </div>
+          </div>
+        );
+      case 'inventory':
+        return (
+          <div className="report-summary">
+            <div className="summary-card">
+              <h3>Total Stock Value</h3>
+              <div className="summary-value">{formatCurrency(399000)}</div>
+              <div className="summary-change positive">+5.3% vs. last month</div>
+            </div>
+            <div className="summary-card">
+              <h3>Items in Stock</h3>
+              <div className="summary-value">830</div>
+              <div className="summary-change positive">+42 since last month</div>
+            </div>
+            <div className="summary-card">
+              <h3>Low Stock Items</h3>
+              <div className="summary-value">12</div>
+              <div className="summary-change negative">+3 since last week</div>
+            </div>
+            <div className="summary-card">
+              <h3>Out of Stock</h3>
+              <div className="summary-value">4</div>
+              <div className="summary-change positive">-2 since last week</div>
+            </div>
+          </div>
+        );
+      case 'customers':
+        return (
+          <div className="report-summary">
+            <div className="summary-card">
+              <h3>Total Customers</h3>
+              <div className="summary-value">342</div>
+              <div className="summary-change positive">+18 since last month</div>
+            </div>
+            <div className="summary-card">
+              <h3>Active Customers</h3>
+              <div className="summary-value">215</div>
+              <div className="summary-change positive">+8.5% vs. last month</div>
+            </div>
+            <div className="summary-card">
+              <h3>Average Customer Value</h3>
+              <div className="summary-value">{formatCurrency(12500)}</div>
+              <div className="summary-change positive">+3.2% vs. last month</div>
+            </div>
+            <div className="summary-card">
+              <h3>Customer Retention</h3>
+              <div className="summary-value">86%</div>
+              <div className="summary-change positive">+2.1% vs. last month</div>
+            </div>
+          </div>
+        );
+      default:
+        return null;
+    }
   };
-  
-  const chartOptions = {
+
+  const renderCharts = () => {
+    switch (activeReportType) {
+      case 'sales':
+        return (
+          <div className="report-charts">
+            <div className="chart-container">
+              <h3>Sales Trend</h3>
+              <Bar 
+                data={salesData} 
+                options={{
+                  responsive: true,
+                  plugins: {
+                    legend: {
+                      position: 'top',
+                    },
+                    title: {
+                      display: true,
+                      text: 'Monthly Sales',
+                    },
+                  },
+                }} 
+              />
+            </div>
+            <div className="chart-container">
+              <h3>Sales by Category</h3>
+              <Pie 
+                data={categorySalesData} 
+                options={{
+                  responsive: true,
+                  plugins: {
+                    legend: {
+                      position: 'right',
+                    },
+                    title: {
+                      display: true,
+                      text: 'Category Distribution',
+                    },
+                  },
+                }} 
+              />
+            </div>
+            <div className="chart-container">
+              <h3>Profit Margin Trend</h3>
+              <Line 
+                data={profitMarginData}
+                options={{
+                  responsive: true,
+                  plugins: {
+                    legend: {
+                      position: 'top',
+                    },
+                    title: {
+                      display: true,
+                      text: 'Monthly Profit Margin',
+                    },
+                  },
+                }} 
+              />
+            </div>
+            <div className="chart-container">
+              <h3>Payment Methods</h3>
+              <Pie 
+                data={paymentMethodData}
+                options={{
+                  responsive: true,
+                  plugins: {
+                    legend: {
+                      position: 'right',
+                    },
+                    title: {
+                      display: true,
+                      text: 'Payment Method Distribution',
+                    },
+                  },
+                }} 
+              />
+            </div>
+          </div>
+        );
+      case 'inventory':
+        return (
+          <div className="report-charts">
+            <div className="chart-container wide">
+              <h3>Inventory Levels by Category</h3>
+              <Bar 
+                data={inventoryData}
+                options={{
+                  responsive: true,
+                  plugins: {
+                    legend: {
+                      position: 'top',
+                    },
+                    title: {
+                      display: true,
+                      text: 'Current Stock vs. Reorder Level',
+                    },
+                  },
+                }} 
+              />
+            </div>
+            <div className="chart-container">
+              <h3>Stock Value Distribution</h3>
+              <Pie 
+                data={categorySalesData}
+                options={{
+                  responsive: true,
+                  plugins: {
+                    legend: {
+                      position: 'right',
+                    },
+                    title: {
+                      display: true,
+                      text: 'Value by Category',
+                    },
+                  },
+                }} 
+              />
+            </div>
+          </div>
+        );
+      case 'customers':
+        return (
+          <div className="report-charts">
+            <div className="chart-container wide">
+              <h3>Customer Growth</h3>
+              <Line 
+                data={{
+                  labels: ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun'],
+                  datasets: [
+                    {
+                      label: 'Total Customers',
+                      data: [270, 285, 298, 315, 330, 342],
+                      fill: false,
+                      backgroundColor: 'rgba(75, 108, 183, 0.6)',
+                      borderColor: 'rgba(75, 108, 183, 1)',
+                      tension: 0.4,
+                    },
+                    {
+                      label: 'New Customers',
+                      data: [15, 20, 13, 17, 15, 12],
+                      fill: false,
+                      backgroundColor: 'rgba(75, 192, 192, 0.6)',
+                      borderColor: 'rgba(75, 192, 192, 1)',
+                      tension: 0.4,
+                    },
+                  ],
+                }}
+                options={{
     responsive: true,
-    scales: {
-      y: {
-        beginAtZero: true,
+                  plugins: {
+                    legend: {
+                      position: 'top',
+                    },
         title: {
           display: true,
-          text: 'Sales Amount ($)'
-        }
-      },
-      x: {
+                      text: 'Customer Growth',
+                    },
+                  },
+                }} 
+              />
+            </div>
+            <div className="chart-container">
+              <h3>Customer Spending Distribution</h3>
+              <Pie 
+                data={{
+                  labels: ['0-5K', '5K-15K', '15K-30K', '30K-50K', '50K+'],
+                  datasets: [
+                    {
+                      label: 'Customers by Spending',
+                      data: [85, 120, 68, 42, 27],
+                      backgroundColor: [
+                        'rgba(75, 108, 183, 0.6)',
+                        'rgba(54, 162, 235, 0.6)',
+                        'rgba(255, 206, 86, 0.6)',
+                        'rgba(75, 192, 192, 0.6)',
+                        'rgba(153, 102, 255, 0.6)',
+                      ],
+                      borderColor: [
+                        'rgba(75, 108, 183, 1)',
+                        'rgba(54, 162, 235, 1)',
+                        'rgba(255, 206, 86, 1)',
+                        'rgba(75, 192, 192, 1)',
+                        'rgba(153, 102, 255, 1)',
+                      ],
+                      borderWidth: 1,
+                    },
+                  ],
+                }}
+                options={{
+                  responsive: true,
+                  plugins: {
+                    legend: {
+                      position: 'right',
+                    },
         title: {
           display: true,
-          text: 'Date'
-        }
-      }
+                      text: 'Customer Spending (₹)',
+                    },
+                  },
+                }} 
+              />
+            </div>
+          </div>
+        );
+      default:
+        return null;
     }
   };
-  
-  // Filter inventory data based on low stock toggle
-  const filteredInventoryData = showLowStockOnly 
-    ? inventoryData.filter(item => item.total_quantity < item.threshold)
-    : inventoryData;
-  
-  // Prepare data for CSV export
-  const salesCsvData = salesData.map(item => ({
-    Date: item.date,
-    'Total Sales': `$${item.amount.toFixed(2)}`
-  }));
-  
-  const inventoryCsvData = filteredInventoryData.map(item => ({
-    'SKU Code': item.sku_code,
-    'Fabric Type': item.fabric_type,
-    'Color': item.color,
-    'Stock': item.total_quantity
-  }));
-  
-  const cashCsvData = cashReconciliationData.map(item => ({
-    Date: item.date,
-    'Total Cash': `$${item.total_cash.toFixed(2)}`
-  }));
+
+  const renderTable = () => {
+    const currentData = tableData[activeReportType] || [];
+    
+    let headers = [];
+    if (activeReportType === 'sales') {
+      headers = ['Date', 'Orders', 'Total Sales', 'Profit'];
+    } else if (activeReportType === 'inventory') {
+      headers = ['Category', 'Current Stock', 'Sold', 'Reorder Level', 'Stock Value'];
+    } else if (activeReportType === 'customers') {
+      headers = ['Customer', 'Purchases', 'Total Spent', 'Last Purchase'];
+    }
+
+    return (
+      <div className="report-table-container">
+        <h3>Detailed Report</h3>
+        <table className="report-table">
+          <thead>
+            <tr>
+              {headers.map((header, index) => (
+                <th key={index}>{header}</th>
+              ))}
+            </tr>
+          </thead>
+          <tbody>
+            {currentData.map((row) => {
+              if (activeReportType === 'sales') {
+                return (
+                  <tr key={row.id}>
+                    <td>{row.date}</td>
+                    <td>{row.orderCount}</td>
+                    <td>{formatCurrency(row.total)}</td>
+                    <td>{formatCurrency(row.profit)}</td>
+                  </tr>
+                );
+              } else if (activeReportType === 'inventory') {
+                return (
+                  <tr key={row.id}>
+                    <td>{row.category}</td>
+                    <td>{row.currentStock}</td>
+                    <td>{row.sold}</td>
+                    <td>{row.reorderLevel}</td>
+                    <td>{formatCurrency(row.value)}</td>
+                  </tr>
+                );
+              } else if (activeReportType === 'customers') {
+                return (
+                  <tr key={row.id}>
+                    <td>{row.name}</td>
+                    <td>{row.purchases}</td>
+                    <td>{formatCurrency(row.totalSpent)}</td>
+                    <td>{row.lastPurchase}</td>
+                  </tr>
+                );
+              }
+              return null;
+            })}
+          </tbody>
+        </table>
+      </div>
+    );
+  };
   
   return (
     <div className="admin-dashboard">
       {/* Sidebar */}
       <div className={`sidebar ${sidebarCollapsed ? 'collapsed' : ''}`}>
         <div className="sidebar-header">
-          <h3>Store Manager</h3>
+          <h3>Mira Textile</h3>
           <button className="collapse-btn" onClick={toggleSidebar}>
             <FaBars />
           </button>
@@ -249,288 +800,130 @@ const Reports = () => {
         <ul className="sidebar-menu">
           <li><Link to="/dashboard"><FaChartBar /> <span>Dashboard</span></Link></li>
           <li><Link to="/inventory/manage"><FaBox /> <span>Inventory</span></Link></li>
-          <li><Link to="/pos"><FaShoppingCart /> <span>Orders</span></Link></li>
+          <li><Link to="/pos"><FaCashRegister /> <span>POS</span></Link></li>
           <li><Link to="/CustomerManagement"><FaUsers /> <span>Customers</span></Link></li>
-          <li className="active"><Link to="/reports"><FaFolder /> <span>Reports</span></Link></li>
+          <li className="active"><Link to="/Reportingpage"><FaFolder /> <span>Reports</span></Link></li>
         </ul>
       </div>
 
       {/* Main Content */}
-      <div className="main-content">
+      <div className={`main-content ${sidebarCollapsed ? 'collapsed' : ''}`}>
         {/* Top Bar */}
         <div className="top-bar">
           <div className="page-title">
-            <h1>Reports</h1>
+            <h1>Reporting Dashboard</h1>
+            <p className="subtitle">View and export business analytics</p>
           </div>
           <div className="top-bar-actions">
-            <button className="refresh-btn" onClick={() => {
-              fetchSalesData();
-              fetchInventoryData();
-              fetchCashReconciliationData();
-            }}>
-              <FaSync />
-            </button>
+            <div className="date-display">
+              <FaCalendarAlt />
+              <span>{new Date().toLocaleDateString('en-US', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })}</span>
+            </div>
             <div className="user-menu-container">
-              <button className="user-menu-btn">
+              <button className="user-menu-btn" onClick={toggleUserMenu}>
                 <FaUserCircle />
+              </button>
+              
+              {userMenuOpen && (
+                <div className="user-popup">
+                  <div className="user-info">
+                    <div className="user-avatar">
+                      <FaUserCircle />
+                    </div>
+                    <div className="user-details">
+                      <h3>{userData.name || 'Demo User'}</h3>
+                      <p>{userData.email || 'demo@miratextile.com'}</p>
+                      <span className="user-role">Admin</span>
+                    </div>
+                  </div>
+                  <div className="user-actions">
+                    <button className="view-profile-btn" onClick={handleUser}>
+                      <FaUserCircle /> View Profile
+                    </button>
+                    <button className="reset-password-btn" onClick={handleResetPassword}>
+                      <FaKey /> Reset Password
+                    </button>
+                    <button className="logout-btn" onClick={handleLogout}>
+                      <FaSignOutAlt /> Logout
+                    </button>
+                  </div>
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
+
+        {/* Report Controls */}
+        <div className="pos-card report-controls">
+          <div className="report-type-selector">
+            <button 
+              className={`report-type-btn ${activeReportType === 'sales' ? 'active' : ''}`}
+              onClick={() => handleReportTypeChange('sales')}
+            >
+              <FaChartBar /> Sales Reports
+            </button>
+            <button 
+              className={`report-type-btn ${activeReportType === 'inventory' ? 'active' : ''}`}
+              onClick={() => handleReportTypeChange('inventory')}
+            >
+              <FaBox /> Inventory Reports
+            </button>
+            <button 
+              className={`report-type-btn ${activeReportType === 'customers' ? 'active' : ''}`}
+              onClick={() => handleReportTypeChange('customers')}
+            >
+              <FaUsers /> Customer Reports
+            </button>
+                  </div>
+          <div className="report-actions">
+            <div className="report-period-selector">
+                          <FaCalendarAlt />
+              <select
+                value={reportPeriod}
+                onChange={handlePeriodChange}
+              >
+                <option value="week">Last 7 Days</option>
+                <option value="month">Last 30 Days</option>
+                <option value="quarter">Last 3 Months</option>
+                <option value="year">Last 12 Months</option>
+              </select>
+                          </div>
+            <div className="export-buttons">
+                      <CSVLink 
+                data={prepareExportData()}
+                filename={`${activeReportType}_report_${new Date().toISOString().split('T')[0]}.csv`}
+                className="export-btn"
+                target="_blank"
+              >
+                <FaFileExcel /> Excel
+                      </CSVLink>
+              <button className="export-btn" onClick={exportToPdf}>
+                <FaFilePdf /> PDF
               </button>
             </div>
           </div>
         </div>
 
-        {/* Reports Content */}
-        <div className="dashboard-content">
-          <div className="card">
-            <div className="card-header">
-              <h2>Store Reports</h2>
-            </div>
-            <div className="card-body">
-              <TabContext value={tabValue}>
-                <Box sx={{ borderBottom: 1, borderColor: 'divider' }}>
-                  <TabList onChange={handleTabChange} aria-label="report tabs">
-                    <Tab label="Sales Report" value="1" />
-                    <Tab label="Inventory Report" value="2" />
-                    <Tab label="Cash Reconciliation" value="3" />
-                  </TabList>
-                </Box>
-                
-                {/* Sales Report Tab */}
-                <TabPanel value="1">
-                  <div className="sales-report-container">
-                    <div className="filters-container" style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '20px', alignItems: 'center' }}>
-                      <div className="date-pickers" style={{ display: 'flex', gap: '15px', alignItems: 'center' }}>
-                        <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-                          <FaCalendarAlt />
-                          <span>From:</span>
-                          <div style={{ position: 'relative', zIndex: '100' }}>
-                            <DatePicker
-                              selected={salesStartDate}
-                              onChange={date => setSalesStartDate(date)}
-                              selectsStart
-                              startDate={salesStartDate}
-                              endDate={salesEndDate}
-                              className="form-control"
-                            />
-                          </div>
-                        </div>
-                        <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-                          <span>To:</span>
-                          <div style={{ position: 'relative', zIndex: '100' }}>
-                            <DatePicker
-                              selected={salesEndDate}
-                              onChange={date => setSalesEndDate(date)}
-                              selectsEnd
-                              startDate={salesStartDate}
-                              endDate={salesEndDate}
-                              minDate={salesStartDate}
-                              className="form-control"
-                            />
-                          </div>
-                        </div>
-                      </div>
-                      <CSVLink 
-                        data={salesCsvData} 
-                        filename={'sales-report.csv'}
-                        className="action-button"
-                        style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '8px 16px' }}
-                      >
-                        <FaFileDownload /> Export CSV
-                      </CSVLink>
-                    </div>
-                    
-                    {loadingSales ? (
-                      <div className="loading">Loading sales data...</div>
-                    ) : (
-                      <>
-                        <div style={{ height: '400px', marginBottom: '20px' }}>
-                          <Bar data={chartData} options={chartOptions} />
-                        </div>
-                        
-                        <TableContainer component={Paper}>
-                          <Table sx={{ minWidth: 650 }} aria-label="sales table">
-                            <TableHead>
-                              <TableRow>
-                                <TableCell>Date</TableCell>
-                                <TableCell align="right">Total Sales</TableCell>
-                              </TableRow>
-                            </TableHead>
-                            <TableBody>
-                              {salesData.length > 0 ? (
-                                salesData.map((row) => (
-                                  <TableRow key={row.date}>
-                                    <TableCell component="th" scope="row">
-                                      {row.date}
-                                    </TableCell>
-                                    <TableCell align="right">${row.amount.toFixed(2)}</TableCell>
-                                  </TableRow>
-                                ))
-                              ) : (
-                                <TableRow>
-                                  <TableCell colSpan={2} align="center">No sales data available</TableCell>
-                                </TableRow>
-                              )}
-                            </TableBody>
-                          </Table>
-                        </TableContainer>
-                      </>
-                    )}
-                  </div>
-                </TabPanel>
-                
-                {/* Inventory Report Tab */}
-                <TabPanel value="2">
-                  <div className="inventory-report-container">
-                    <div className="filters-container" style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '20px', alignItems: 'center' }}>
-                      <FormControlLabel
-                        control={
-                          <Switch 
-                            checked={showLowStockOnly}
-                            onChange={(e) => setShowLowStockOnly(e.target.checked)}
-                            color="primary"
-                          />
-                        }
-                        label="Show Low Stock Only"
-                      />
-                      <CSVLink 
-                        data={inventoryCsvData} 
-                        filename={'inventory-report.csv'}
-                        className="action-button"
-                        style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '8px 16px' }}
-                      >
-                        <FaFileDownload /> Export CSV
-                      </CSVLink>
-                    </div>
-                    
-                    {loadingInventory ? (
-                      <div className="loading">Loading inventory data...</div>
-                    ) : (
-                      <TableContainer component={Paper}>
-                        <Table sx={{ minWidth: 650 }} aria-label="inventory table">
-                          <TableHead>
-                            <TableRow>
-                              <TableCell>SKU Code</TableCell>
-                              <TableCell>Fabric Type</TableCell>
-                              <TableCell>Color</TableCell>
-                              <TableCell align="right">Stock</TableCell>
-                            </TableRow>
-                          </TableHead>
-                          <TableBody>
-                            {filteredInventoryData.length > 0 ? (
-                              filteredInventoryData.map((row) => (
-                                <TableRow 
-                                  key={row.sku_code}
-                                  sx={row.total_quantity < row.threshold ? { backgroundColor: '#ffebee' } : {}}
-                                >
-                                  <TableCell component="th" scope="row">
-                                    {row.sku_code}
-                                  </TableCell>
-                                  <TableCell>{row.fabric_type}</TableCell>
-                                  <TableCell>{row.color}</TableCell>
-                                  <TableCell align="right">
-                                    {row.total_quantity.toFixed(1)}
-                                    {row.total_quantity < row.threshold && (
-                                      <span style={{ color: '#d32f2f', marginLeft: '5px' }}>
-                                        (Low)
-                                      </span>
-                                    )}
-                                  </TableCell>
-                                </TableRow>
-                              ))
-                            ) : (
-                              <TableRow>
-                                <TableCell colSpan={4} align="center">No inventory data available</TableCell>
-                              </TableRow>
-                            )}
-                          </TableBody>
-                        </Table>
-                      </TableContainer>
-                    )}
-                  </div>
-                </TabPanel>
-                
-                {/* Cash Reconciliation Tab */}
-                <TabPanel value="3">
-                  <div className="cash-report-container">
-                    <div className="filters-container" style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '20px', alignItems: 'center' }}>
-                      <div className="date-pickers" style={{ display: 'flex', gap: '15px', alignItems: 'center' }}>
-                        <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-                          <FaCalendarAlt />
-                          <span>From:</span>
-                          <div style={{ position: 'relative', zIndex: '100' }}>
-                            <DatePicker
-                              selected={cashStartDate}
-                              onChange={date => setCashStartDate(date)}
-                              selectsStart
-                              startDate={cashStartDate}
-                              endDate={cashEndDate}
-                              className="form-control"
-                            />
-                          </div>
-                        </div>
-                        <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-                          <span>To:</span>
-                          <div style={{ position: 'relative', zIndex: '100' }}>
-                            <DatePicker
-                              selected={cashEndDate}
-                              onChange={date => setCashEndDate(date)}
-                              selectsEnd
-                              startDate={cashStartDate}
-                              endDate={cashEndDate}
-                              minDate={cashStartDate}
-                              className="form-control"
-                            />
-                          </div>
-                        </div>
-                      </div>
-                      <CSVLink 
-                        data={cashCsvData} 
-                        filename={'cash-reconciliation-report.csv'}
-                        className="action-button"
-                        style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '8px 16px' }}
-                      >
-                        <FaFileDownload /> Export CSV
-                      </CSVLink>
-                    </div>
-                    
-                    {loadingCash ? (
-                      <div className="loading">Loading cash reconciliation data...</div>
-                    ) : (
-                      <TableContainer component={Paper}>
-                        <Table sx={{ minWidth: 650 }} aria-label="cash reconciliation table">
-                          <TableHead>
-                            <TableRow>
-                              <TableCell>Date</TableCell>
-                              <TableCell align="right">Total Cash</TableCell>
-                            </TableRow>
-                          </TableHead>
-                          <TableBody>
-                            {cashReconciliationData.length > 0 ? (
-                              cashReconciliationData.map((row) => (
-                                <TableRow key={row.date}>
-                                  <TableCell component="th" scope="row">
-                                    {row.date}
-                                  </TableCell>
-                                  <TableCell align="right">${row.total_cash.toFixed(2)}</TableCell>
-                                </TableRow>
-                              ))
-                            ) : (
-                              <TableRow>
-                                <TableCell colSpan={2} align="center">No cash reconciliation data available</TableCell>
-                              </TableRow>
-                            )}
-                          </TableBody>
-                        </Table>
-                      </TableContainer>
-                    )}
-                  </div>
-                </TabPanel>
-              </TabContext>
-            </div>
-          </div>
+        {/* Report Content */}
+        <div className="report-content">
+          {loading ? (
+            <LoadingAnimation size="large" text="Loading report data..." />
+          ) : (
+            <>
+              {/* Report Summary */}
+              {renderReportSummary()}
+              
+              {/* Charts */}
+              {renderCharts()}
+              
+              {/* Detailed Report Table */}
+              {renderTable()}
+            </>
+          )}
         </div>
       </div>
     </div>
   );
 };
 
-export default Reports;
+export default Reportingpage;

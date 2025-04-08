@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import { 
   FaUsers, 
   FaUserPlus, 
@@ -19,34 +19,27 @@ import {
   FaTimes,
   FaChartBar,
   FaBox,
-  FaShoppingCart,
   FaCashRegister,
-  FaFolder
+  FaFolder,
+  FaEye,
+  FaCalendarAlt
 } from 'react-icons/fa';
 import { AiFillIdcard } from 'react-icons/ai';
-import { DataGrid } from '@mui/x-data-grid';
-import { 
-  Button, 
-  Dialog, 
-  DialogTitle, 
-  DialogContent, 
-  DialogActions, 
-  TextField, 
-  Tab, 
-  Tabs, 
-  Box, 
-  InputAdornment,
-  Select,
-  MenuItem,
-  FormControl,
-  InputLabel,
-  Typography,
-  IconButton
-} from '@mui/material';
-import { Link } from "react-router-dom";
 import '../styles/dashboard.css';
+import '../styles/customer.css';
+import '../styles/pos.css';
+import LoadingAnimation from '../components/LoadingAnimation';
 
-const API_BASE_URL = 'http://localhost:8082/api';
+// API Configuration
+const API_BASE_URL = process.env.REACT_APP_API_BASE_URL || 'http://localhost:5000/api';
+const API_CONFIG = {
+  ENDPOINTS: {
+    AUTH: {
+      LOGOUT: '/auth/logout'
+    }
+  },
+  TOKEN_KEY: 'auth_token'
+};
 
 const CustomerManagement = () => {
   const navigate = useNavigate();
@@ -63,14 +56,15 @@ const CustomerManagement = () => {
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
   const [userMenuOpen, setUserMenuOpen] = useState(false);
   const [userData, setUserData] = useState({
-    name: '',
-    email: ''
+    name: 'Admin User',
+    email: 'admin@miratextile.com'
   });
   
   // Form states
   const [formData, setFormData] = useState({
     name: '',
     contact_info: '',
+    phone: '',
     credit_limit: ''
   });
   
@@ -81,14 +75,9 @@ const CustomerManagement = () => {
   
   const [formErrors, setFormErrors] = useState({});
   const [interactionErrors, setInteractionErrors] = useState({});
-  const [showToast, setShowToast] = useState(false);
-  const [toastMessage, setToastMessage] = useState('');
-  const [toastType, setToastType] = useState('success');
-  const [mode, setMode] = useState('add'); // 'add' or 'edit'
   
   useEffect(() => {
     fetchCustomers();
-    fetchUserData();
   }, []);
   
   useEffect(() => {
@@ -98,23 +87,21 @@ const CustomerManagement = () => {
   const fetchCustomers = async () => {
     setIsLoading(true);
     try {
-      // In a real app, this would be a fetch to your API
-      const response = await fetch('/api/customers');
-      const data = await response.json();
-      setCustomers(data);
-      setFilteredCustomers(data);
-    } catch (error) {
-      console.error('Error fetching customers:', error);
       // For demo purposes, let's add some fake data
       const fakeCustomers = [
-        { id: 1, name: 'John Doe', contact_info: 'john@example.com', credit_limit: 500 },
-        { id: 2, name: 'Jane Smith', contact_info: 'jane@example.com', credit_limit: 1000 },
-        { id: 3, name: 'Bob Johnson', contact_info: 'bob@example.com', credit_limit: 750 },
-        { id: 4, name: 'Alice Brown', contact_info: 'alice@example.com', credit_limit: 1200 },
-        { id: 5, name: 'Charlie Davis', contact_info: 'charlie@example.com', credit_limit: 250 }
+        { id: 1, name: 'John Doe', contact_info: 'john@example.com', phone: '9876543210', credit_limit: 5000, credit_used: 1200, last_purchase: '2024-05-12', status: 'Active' },
+        { id: 2, name: 'Jane Smith', contact_info: 'jane@example.com', phone: '8765432109', credit_limit: 10000, credit_used: 7500, last_purchase: '2024-05-10', status: 'Active' },
+        { id: 3, name: 'Bob Johnson', contact_info: 'bob@example.com', phone: '7654321098', credit_limit: 7500, credit_used: 1500, last_purchase: '2024-05-05', status: 'Active' },
+        { id: 4, name: 'Alice Brown', contact_info: 'alice@example.com', phone: '6543210987', credit_limit: 12000, credit_used: 3000, last_purchase: '2024-04-28', status: 'Inactive' },
+        { id: 5, name: 'Charlie Davis', contact_info: 'charlie@example.com', phone: '5432109876', credit_limit: 2500, credit_used: 0, last_purchase: '2024-04-20', status: 'Active' },
+        { id: 6, name: 'Eva White', contact_info: 'eva@example.com', phone: '4321098765', credit_limit: 8000, credit_used: 4500, last_purchase: '2024-05-15', status: 'Active' },
+        { id: 7, name: 'Frank Miller', contact_info: 'frank@example.com', phone: '3210987654', credit_limit: 15000, credit_used: 12000, last_purchase: '2024-05-01', status: 'Active' },
+        { id: 8, name: 'Grace Lee', contact_info: 'grace@example.com', phone: '2109876543', credit_limit: 3000, credit_used: 3000, last_purchase: '2024-04-15', status: 'Blocked' }
       ];
       setCustomers(fakeCustomers);
       setFilteredCustomers(fakeCustomers);
+    } catch (error) {
+      console.error('Error fetching customers:', error);
     } finally {
       setIsLoading(false);
     }
@@ -122,12 +109,6 @@ const CustomerManagement = () => {
   
   const fetchCustomerInteractions = async (customerId) => {
     try {
-      // In a real app, this would be a fetch to your API
-      const response = await fetch(`/api/customers/${customerId}/interactions`);
-      const data = await response.json();
-      setInteractions(data);
-    } catch (error) {
-      console.error('Error fetching customer interactions:', error);
       // For demo purposes, let's add some fake data
       const today = new Date();
       const fakeInteractions = [
@@ -135,52 +116,24 @@ const CustomerManagement = () => {
           id: 1, 
           interaction_type: 'Phone Call', 
           details: 'Discussed order #123', 
-          date: '2025-03-24' 
+          date: '2024-05-14' 
         },
         { 
           id: 2, 
           interaction_type: 'Email', 
           details: 'Sent invoice for recent purchase', 
-          date: '2025-03-20' 
+          date: '2024-05-10' 
         },
         { 
           id: 3, 
           interaction_type: 'In-Store Visit', 
           details: 'Customer browsed inventory, but did not purchase', 
-          date: '2025-03-15' 
+          date: '2024-05-05' 
         }
       ];
       setInteractions(fakeInteractions);
-    }
-  };
-  
-  const fetchUserData = async () => {
-    try {
-      const token = localStorage.getItem('token');
-      if (!token) {
-        console.error('No authentication token found');
-        return;
-      }
-
-      const response = await fetch(`${API_BASE_URL}/admin/users/current`, {
-        headers: {
-          'Authorization': `Bearer ${token}`
-        }
-      });
-
-      if (!response.ok) {
-        throw new Error('Failed to fetch user data');
-      }
-
-      const data = await response.json();
-      if (data.success && data.data) {
-        setUserData({
-          name: data.data.fullName || 'Unknown User',
-          email: data.data.email || 'No email'
-        });
-      }
     } catch (error) {
-      console.error('Error fetching user data:', error);
+      console.error('Error fetching customer interactions:', error);
     }
   };
   
@@ -193,24 +146,24 @@ const CustomerManagement = () => {
     const filtered = customers.filter(
       customer => 
         customer.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        customer.contact_info.toLowerCase().includes(searchTerm.toLowerCase())
+        customer.contact_info.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        customer.phone.toLowerCase().includes(searchTerm.toLowerCase())
     );
     
     setFilteredCustomers(filtered);
   };
   
   const handleAddCustomer = () => {
-    setMode('add');
     resetForm();
     setOpenAddEditModal(true);
   };
   
   const handleEditCustomer = (customer) => {
-    setMode('edit');
     setSelectedCustomer(customer);
     setFormData({
       name: customer.name,
       contact_info: customer.contact_info,
+      phone: customer.phone,
       credit_limit: customer.credit_limit.toString()
     });
     setOpenAddEditModal(true);
@@ -218,11 +171,6 @@ const CustomerManagement = () => {
   
   const handleViewCustomer = async (customer) => {
     setSelectedCustomer(customer);
-    setFormData({
-      name: customer.name,
-      contact_info: customer.contact_info,
-      credit_limit: customer.credit_limit.toString()
-    });
     await fetchCustomerInteractions(customer.id);
     setOpenDetailsModal(true);
   };
@@ -237,6 +185,7 @@ const CustomerManagement = () => {
     setFormData({
       name: '',
       contact_info: '',
+      phone: '',
       credit_limit: ''
     });
     setFormErrors({});
@@ -252,12 +201,10 @@ const CustomerManagement = () => {
   
   const validateForm = () => {
     const errors = {};
-    if (!formData.name.trim()) errors.name = 'Name is required';
-    if (!formData.contact_info.trim()) errors.contact_info = 'Contact info is required';
-    if (!formData.credit_limit.trim()) errors.credit_limit = 'Credit limit is required';
-    else if (isNaN(formData.credit_limit) || parseFloat(formData.credit_limit) < 0) {
-      errors.credit_limit = 'Credit limit must be a positive number';
-    }
+    if (!formData.name) errors.name = 'Name is required';
+    if (!formData.contact_info) errors.contact_info = 'Contact info is required';
+    if (!formData.phone) errors.phone = 'Phone number is required';
+    if (!formData.credit_limit || isNaN(formData.credit_limit)) errors.credit_limit = 'Valid credit limit is required';
     
     setFormErrors(errors);
     return Object.keys(errors).length === 0;
@@ -265,8 +212,8 @@ const CustomerManagement = () => {
   
   const validateInteractionForm = () => {
     const errors = {};
-    if (!interactionData.interaction_type.trim()) errors.interaction_type = 'Interaction type is required';
-    if (!interactionData.details.trim()) errors.details = 'Details are required';
+    if (!interactionData.interaction_type) errors.interaction_type = 'Interaction type is required';
+    if (!interactionData.details) errors.details = 'Details are required';
     
     setInteractionErrors(errors);
     return Object.keys(errors).length === 0;
@@ -275,65 +222,40 @@ const CustomerManagement = () => {
   const handleSubmitCustomer = async () => {
     if (!validateForm()) return;
     
-    try {
-      if (mode === 'add') {
-        // In a real app, this would be a POST to your API
-        // const response = await fetch('/api/customers', {
-        //   method: 'POST',
-        //   headers: {
-        //     'Content-Type': 'application/json',
-        //   },
-        //   body: JSON.stringify({
-        //     name: formData.name,
-        //     contact_info: formData.contact_info,
-        //     credit_limit: parseFloat(formData.credit_limit)
-        //   }),
-        // });
-        // const data = await response.json();
-        
-        // For demo purposes, let's simulate adding a customer
-        const newCustomer = {
-          id: customers.length + 1,
-          name: formData.name,
-          contact_info: formData.contact_info,
+    const customerData = {
+      ...formData,
           credit_limit: parseFloat(formData.credit_limit)
         };
         
-        setCustomers([...customers, newCustomer]);
-        showToastNotification('Customer added successfully', 'success');
-      } else {
-        // In a real app, this would be a PUT to your API
-        // const response = await fetch(`/api/customers/${selectedCustomer.id}`, {
-        //   method: 'PUT',
-        //   headers: {
-        //     'Content-Type': 'application/json',
-        //   },
-        //   body: JSON.stringify({
-        //     name: formData.name,
-        //     contact_info: formData.contact_info,
-        //     credit_limit: parseFloat(formData.credit_limit)
-        //   }),
-        // });
-        // const data = await response.json();
-        
-        // For demo purposes, let's simulate updating a customer
+    // If editing an existing customer
+    if (selectedCustomer) {
+      try {
+        // In a real app, this would be an API call to update
         const updatedCustomers = customers.map(c => 
-          c.id === selectedCustomer.id ? {
-            ...c,
-            name: formData.name,
-            contact_info: formData.contact_info,
-            credit_limit: parseFloat(formData.credit_limit)
-          } : c
+          c.id === selectedCustomer.id ? { ...c, ...customerData } : c
         );
-        
         setCustomers(updatedCustomers);
-        showToastNotification('Customer updated successfully', 'success');
+        setOpenAddEditModal(false);
+      } catch (error) {
+        console.error('Error updating customer:', error);
       }
-      
+    } 
+    // If adding a new customer
+    else {
+      try {
+        // In a real app, this would be an API call to create
+        const newCustomer = {
+          id: customers.length + 1,
+          ...customerData,
+          credit_used: 0,
+          last_purchase: 'Never',
+          status: 'Active'
+        };
+        setCustomers([...customers, newCustomer]);
       setOpenAddEditModal(false);
     } catch (error) {
-      console.error('Error submitting customer:', error);
-      showToastNotification('Error saving customer data', 'error');
+        console.error('Error adding customer:', error);
+      }
     }
   };
   
@@ -341,104 +263,65 @@ const CustomerManagement = () => {
     if (!validateInteractionForm()) return;
     
     try {
-      // In a real app, this would be a POST to your API
-      // const response = await fetch(`/api/customers/${selectedCustomer.id}/interactions`, {
-      //   method: 'POST',
-      //   headers: {
-      //     'Content-Type': 'application/json',
-      //   },
-      //   body: JSON.stringify({
-      //     interaction_type: interactionData.interaction_type,
-      //     details: interactionData.details
-      //   }),
-      // });
-      // const data = await response.json();
-      
-      // For demo purposes, let's simulate adding an interaction
-      const today = new Date().toISOString().split('T')[0];
+      // In a real app, this would be an API call
       const newInteraction = {
         id: interactions.length + 1,
-        interaction_type: interactionData.interaction_type,
-        details: interactionData.details,
-        date: today
+        ...interactionData,
+        date: new Date().toISOString().split('T')[0]
       };
-      
       setInteractions([newInteraction, ...interactions]);
-      showToastNotification('Interaction logged successfully', 'success');
       setOpenInteractionModal(false);
-      
-      // If details modal is open, refresh interactions tab
-      if (openDetailsModal) {
-        setTabValue(1); // Switch to interactions tab
-      }
     } catch (error) {
-      console.error('Error submitting interaction:', error);
-      showToastNotification('Error logging interaction', 'error');
+      console.error('Error adding interaction:', error);
     }
   };
   
   const handleDeleteCustomer = async (customerId) => {
-    if (!window.confirm('Are you sure you want to delete this customer?')) return;
-    
-    try {
-      // In a real app, this would be a DELETE to your API
-      // await fetch(`/api/customers/${customerId}`, {
-      //   method: 'DELETE'
-      // });
-      
-      // For demo purposes, let's simulate deleting a customer
+    if (window.confirm('Are you sure you want to delete this customer?')) {
+      try {
+        // In a real app, this would be an API call
       const updatedCustomers = customers.filter(c => c.id !== customerId);
       setCustomers(updatedCustomers);
-      showToastNotification('Customer deleted successfully', 'success');
     } catch (error) {
       console.error('Error deleting customer:', error);
-      showToastNotification('Error deleting customer', 'error');
+      }
     }
   };
   
   const handleFormChange = (e) => {
     const { name, value } = e.target;
-    setFormData(prev => ({
-      ...prev,
+    setFormData({
+      ...formData,
       [name]: value
-    }));
+    });
     
-    // Clear error for this field if it exists
+    // Clear error when field is updated
     if (formErrors[name]) {
-      setFormErrors(prev => ({
-        ...prev,
-        [name]: ''
-      }));
+      setFormErrors({
+        ...formErrors,
+        [name]: null
+      });
     }
   };
   
   const handleInteractionChange = (e) => {
     const { name, value } = e.target;
-    setInteractionData(prev => ({
-      ...prev,
+    setInteractionData({
+      ...interactionData,
       [name]: value
-    }));
+    });
     
-    // Clear error for this field if it exists
+    // Clear error when field is updated
     if (interactionErrors[name]) {
-      setInteractionErrors(prev => ({
-        ...prev,
-        [name]: ''
-      }));
+      setInteractionErrors({
+        ...interactionErrors,
+        [name]: null
+      });
     }
   };
   
-  const handleTabChange = (event, newValue) => {
-    setTabValue(newValue);
-  };
-  
-  const showToastNotification = (message, type) => {
-    setToastMessage(message);
-    setToastType(type);
-    setShowToast(true);
-    setTimeout(() => {
-      setShowToast(false);
-    }, 3000);
+  const handleTabChange = (tabIndex) => {
+    setTabValue(tabIndex);
   };
   
   const toggleSidebar = () => {
@@ -455,104 +338,61 @@ const CustomerManagement = () => {
   
   const handleLogout = () => {
     if (window.confirm("Are you sure you want to logout?")) {
-      localStorage.clear();
-      sessionStorage.clear();
-      navigate('/Login');
+      try {
+        // Optional: Try to call logout API endpoint
+        fetch(`${API_BASE_URL}${API_CONFIG.ENDPOINTS.AUTH.LOGOUT}`, {
+          method: 'POST',
+          headers: {
+            'Authorization': `Bearer ${localStorage.getItem(API_CONFIG.TOKEN_KEY)}`
+          }
+        }).catch(error => {
+          console.log('Logout API error (continuing with local logout):', error);
+        }).finally(() => {
+          // Always execute this code to ensure local logout occurs
+          localStorage.clear();
+          sessionStorage.clear();
+          navigate('/login');
+        });
+      } catch (error) {
+        // Fallback in case of any errors
+        console.log('Error during logout:', error);
+        localStorage.clear();
+        sessionStorage.clear();
+        navigate('/login');
+      }
     }
   };
-  
+
   const handleResetPassword = () => {
     navigate('/ResetPassword');
   };
-  
+
   const handleUser = () => {
     navigate('/Profile');
   };
   
-  // Close user menu when clicking outside
-  useEffect(() => {
-    const handleClickOutside = (event) => {
-      if (userMenuOpen && !event.target.closest('.user-menu-container')) {
-        closeUserMenu();
-      }
-    };
-    
-    document.addEventListener('mousedown', handleClickOutside);
-    return () => {
-      document.removeEventListener('mousedown', handleClickOutside);
-    };
-  }, [userMenuOpen]);
+  const formatDate = (dateString) => {
+    if (dateString === 'Never') return 'Never';
+    return new Date(dateString).toLocaleDateString('en-US', {
+      year: 'numeric',
+      month: 'short',
+      day: 'numeric'
+    });
+  };
   
-  // DataGrid columns configuration
-  const columns = [
-    { field: 'id', headerName: 'ID', width: 70 },
-    { field: 'name', headerName: 'Name', width: 180 },
-    { field: 'contact_info', headerName: 'Contact Info', width: 220 },
-    {
-      field: 'credit_limit',
-      headerName: 'Credit Limit',
-      width: 150,
-      renderCell: (params) => (
-        <span>${params.value.toFixed(2)}</span>
-      )
-    },
-    {
-      field: 'actions',
-      headerName: 'Actions',
-      sortable: false,
-      width: 200,
-      renderCell: (params) => (
-        <div style={{ display: 'flex', gap: '8px' }}>
-          <Button 
-            variant="text" 
-            color="primary" 
-            size="small"
-            onClick={() => handleViewCustomer(params.row)}
-          >
-            <FaUserCircle style={{ marginRight: '5px' }} /> View
-          </Button>
-          <Button 
-            variant="text" 
-            color="secondary" 
-            size="small"
-            onClick={() => handleEditCustomer(params.row)}
-          >
-            <FaEdit style={{ marginRight: '5px' }} /> Edit
-          </Button>
-          <Button 
-            variant="text" 
-            color="error" 
-            size="small"
-            onClick={() => handleDeleteCustomer(params.row.id)}
-          >
-            <FaTrash style={{ marginRight: '5px' }} /> Delete
-          </Button>
-          <Button 
-            variant="text" 
-            color="info" 
-            size="small"
-            onClick={() => handleAddInteraction(params.row)}
-          >
-            <FaPhone style={{ marginRight: '5px' }} /> Log
-          </Button>
-        </div>
-      )
-    }
-  ];
-  
-  // Interactions DataGrid columns
-  const interactionColumns = [
-    { field: 'date', headerName: 'Date', width: 120 },
-    { field: 'interaction_type', headerName: 'Type', width: 150 },
-    { field: 'details', headerName: 'Details', width: 300 }
-  ];
+  const getCreditStatus = (used, limit) => {
+    const ratio = used / limit;
+    if (ratio >= 0.8) return 'credit-low';
+    if (ratio >= 0.5) return 'credit-moderate';
+    return 'credit-good';
+  };
   
   return (
     <div className="admin-dashboard">
       {/* Sidebar */}
       <div className={`sidebar ${sidebarCollapsed ? 'collapsed' : ''}`}>
         <div className="sidebar-header">
-          <h3>Store Manager</h3>
+          <h3>Mira Textile</h3>
           <button className="collapse-btn" onClick={toggleSidebar}>
             <FaBars />
           </button>
@@ -560,23 +400,25 @@ const CustomerManagement = () => {
         <ul className="sidebar-menu">
           <li><Link to="/dashboard"><FaChartBar /> <span>Dashboard</span></Link></li>
           <li><Link to="/inventory/manage"><FaBox /> <span>Inventory</span></Link></li>
-          <li><Link to="/pos"><FaShoppingCart /> <span>Orders</span></Link></li>
-          <li className="active"><Link to="/customers"><FaUsers /> <span>Customers</span></Link></li>
+          <li><Link to="/pos"><FaCashRegister /> <span>POS</span></Link></li>
+          <li className="active"><Link to="/CustomerManagement"><FaUsers /> <span>Customers</span></Link></li>
           <li><Link to="/Reportingpage"><FaFolder /> <span>Reports</span></Link></li>
         </ul>
       </div>
 
       {/* Main Content */}
-      <div className="main-content">
+      <div className={`main-content ${sidebarCollapsed ? 'collapsed' : ''}`}>
         {/* Top Bar */}
         <div className="top-bar">
           <div className="page-title">
             <h1>Customer Management</h1>
+            <p className="subtitle">Manage your customer accounts and interactions</p>
           </div>
           <div className="top-bar-actions">
-            <button className="refresh-btn" onClick={fetchCustomers}>
-              <FaSync />
-            </button>
+            <div className="date-display">
+              <FaCalendarAlt />
+              <span>{new Date().toLocaleDateString('en-US', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })}</span>
+            </div>
             <div className="user-menu-container">
               <button className="user-menu-btn" onClick={toggleUserMenu}>
                 <FaUserCircle />
@@ -589,16 +431,17 @@ const CustomerManagement = () => {
                       <FaUserCircle />
                     </div>
                     <div className="user-details">
-                      <h3>{userData.name}</h3>
-                      <p>{userData.email}</p>
+                      <h3>{userData.name || 'Demo User'}</h3>
+                      <p>{userData.email || 'demo@miratextile.com'}</p>
+                      <span className="user-role">Admin</span>
                     </div>
                   </div>
                   <div className="user-actions">
+                    <button className="view-profile-btn" onClick={handleUser}>
+                      <FaUserCircle /> View Profile
+                    </button>
                     <button className="reset-password-btn" onClick={handleResetPassword}>
                       <FaKey /> Reset Password
-                    </button>
-                    <button className="reset-password-btn" onClick={handleUser}>
-                      <AiFillIdcard /> User Profile
                     </button>
                     <button className="logout-btn" onClick={handleLogout}>
                       <FaSignOutAlt /> Logout
@@ -610,52 +453,92 @@ const CustomerManagement = () => {
           </div>
         </div>
 
-        {/* Dashboard Content */}
-        <div className="dashboard-content">
-          <div className="card">
-            <div className="card-header">
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                <h2>Customers</h2>
-                <div style={{ display: 'flex', gap: '10px' }}>
-                  <TextField
-                    placeholder="Search by name or contact"
-                    variant="outlined"
-                    size="small"
-                    value={searchTerm}
-                    onChange={(e) => setSearchTerm(e.target.value)}
-                    InputProps={{
-                      startAdornment: (
-                        <InputAdornment position="start">
-                          <FaSearch />
-                        </InputAdornment>
-                      ),
-                    }}
-                  />
-                  <Button
-                    variant="contained"
-                    color="primary"
-                    startIcon={<FaUserPlus />}
-                    onClick={handleAddCustomer}
-                    style={{ backgroundColor: '#3B3F51' }}
-                  >
-                    Add Customer
-                  </Button>
-                </div>
+        {/* Customer Management Content */}
+        <div className="customers-page">
+          {/* Search and Actions Bar */}
+          <div className="customer-actions-bar">
+            <div className="search-filter-container">
+              <div className="search-box">
+                <FaSearch />
+                <input
+                  type="text"
+                  className="search-input"
+                  placeholder="Search by name, email or phone..."
+                  value={searchTerm}
+                  onChange={(e) => setSearchTerm(e.target.value)}
+                />
               </div>
             </div>
-            <div className="card-body">
+            <div className="action-buttons-container">
+              <button className="refresh-btn" onClick={fetchCustomers}>
+                <FaSync /> Refresh
+              </button>
+              <button className="add-customer-btn" onClick={handleAddCustomer}>
+                <FaUserPlus /> Add New Customer
+              </button>
+            </div>
+          </div>
+          
+          {/* Customers Table */}
+          <div className="customers-card">
+            <div className="customer-table-header">
+              <h2>Customer List</h2>
+            </div>
+            <div className="customer-table-container">
               {isLoading ? (
-                <div className="loading">Loading customer data...</div>
+                <LoadingAnimation size="large" text="Loading customer data..." />
               ) : (
-                <div style={{ height: 500, width: '100%' }}>
-                  <DataGrid
-                    rows={filteredCustomers}
-                    columns={columns}
-                    pageSize={8}
-                    checkboxSelection={false}
-                    disableSelectionOnClick
-                  />
+                <table className="customer-table">
+                  <thead>
+                    <tr>
+                      <th>ID</th>
+                      <th>Name</th>
+                      <th>Contact</th>
+                      <th>Phone</th>
+                      <th>Credit Limit</th>
+                      <th>Last Purchase</th>
+                      <th>Status</th>
+                      <th>Actions</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {filteredCustomers.map(customer => (
+                      <tr key={customer.id}>
+                        <td>#{customer.id}</td>
+                        <td>{customer.name}</td>
+                        <td>{customer.contact_info}</td>
+                        <td>{customer.phone}</td>
+                        <td>
+                          <span className={`customer-credit-status ${getCreditStatus(customer.credit_used, customer.credit_limit)}`}>
+                            ₹{customer.credit_used} / ₹{customer.credit_limit}
+                          </span>
+                        </td>
+                        <td>{formatDate(customer.last_purchase)}</td>
+                        <td>
+                          <span className={`customer-credit-status ${customer.status === 'Active' ? 'credit-good' : customer.status === 'Inactive' ? 'credit-moderate' : 'credit-low'}`}>
+                            {customer.status}
+                          </span>
+                        </td>
+                        <td>
+                          <div className="customer-actions">
+                            <button className="action-btn view-btn" onClick={() => handleViewCustomer(customer)}>
+                              <FaEye />
+                            </button>
+                            <button className="action-btn edit-btn" onClick={() => handleEditCustomer(customer)}>
+                              <FaEdit />
+                            </button>
+                            <button className="action-btn delete-btn" onClick={() => handleDeleteCustomer(customer.id)}>
+                              <FaTrash />
+                            </button>
+                            <button className="action-btn log-btn" onClick={() => handleAddInteraction(customer)}>
+                              <FaPhone />
+                            </button>
                 </div>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
               )}
             </div>
           </div>
@@ -663,242 +546,229 @@ const CustomerManagement = () => {
       </div>
 
       {/* Add/Edit Customer Modal */}
-      <Dialog 
-        open={openAddEditModal} 
-        onClose={() => setOpenAddEditModal(false)}
-        maxWidth="sm"
-        fullWidth
-      >
-        <DialogTitle className="dialog-title">
-          {mode === 'add' ? 'Add New Customer' : 'Edit Customer'}
-        </DialogTitle>
-        <DialogContent className="dialog-content">
-          <Box sx={{ mt: 2 }}>
-            <TextField
+      {openAddEditModal && (
+        <div className="modal-overlay">
+          <div className="modal-container">
+            <div className="modal-header">
+              <h2>{selectedCustomer ? 'Edit Customer' : 'Add New Customer'}</h2>
+              <button className="close-modal" onClick={() => setOpenAddEditModal(false)}>×</button>
+            </div>
+            <div className="modal-body">
+              <div className="form-group">
+                <label>Name</label>
+                <input
+                  type="text"
               name="name"
-              label="Customer Name"
-              fullWidth
-              margin="normal"
+                  className="form-control"
               value={formData.name}
               onChange={handleFormChange}
-              error={!!formErrors.name}
-              helperText={formErrors.name || "e.g., Jane Doe"}
-            />
-            <TextField
+                  placeholder="Customer full name"
+                />
+                {formErrors.name && <div className="form-error">{formErrors.name}</div>}
+              </div>
+              
+              <div className="form-group">
+                <label>Email Address</label>
+                <input
+                  type="email"
               name="contact_info"
-              label="Contact Info"
-              fullWidth
-              margin="normal"
+                  className="form-control"
               value={formData.contact_info}
               onChange={handleFormChange}
-              error={!!formErrors.contact_info}
-              helperText={formErrors.contact_info || "e.g., jane@example.com"}
-            />
-            <TextField
+                  placeholder="Email address"
+                />
+                {formErrors.contact_info && <div className="form-error">{formErrors.contact_info}</div>}
+              </div>
+              
+              <div className="form-group">
+                <label>Phone Number</label>
+                <input
+                  type="text"
+                  name="phone"
+                  className="form-control"
+                  value={formData.phone || ''}
+                  onChange={handleFormChange}
+                  placeholder="Phone number"
+                />
+                {formErrors.phone && <div className="form-error">{formErrors.phone}</div>}
+              </div>
+              
+              <div className="form-group">
+                <label>Credit Limit (₹)</label>
+                <input
+                  type="number"
               name="credit_limit"
-              label="Credit Limit"
-              fullWidth
-              margin="normal"
+                  className="form-control"
               value={formData.credit_limit}
               onChange={handleFormChange}
-              error={!!formErrors.credit_limit}
-              helperText={formErrors.credit_limit || "e.g., 500"}
-              InputProps={{
-                startAdornment: <InputAdornment position="start">$</InputAdornment>,
-              }}
-            />
-          </Box>
-        </DialogContent>
-        <DialogActions className="dialog-actions">
-          <Button onClick={() => setOpenAddEditModal(false)} color="secondary">
-            Cancel
-          </Button>
-          <Button onClick={handleSubmitCustomer} color="primary" variant="contained" style={{ backgroundColor: '#3B3F51' }}>
-            {mode === 'add' ? 'Add Customer' : 'Save Changes'}
-          </Button>
-        </DialogActions>
-      </Dialog>
+                  placeholder="Enter credit limit"
+                />
+                {formErrors.credit_limit && <div className="form-error">{formErrors.credit_limit}</div>}
+              </div>
+            </div>
+            <div className="modal-footer">
+              <button className="modal-btn cancel" onClick={() => setOpenAddEditModal(false)}>Cancel</button>
+              <button className="modal-btn save" onClick={handleSubmitCustomer}>Save Customer</button>
+            </div>
+          </div>
+        </div>
+      )}
 
-      {/* Interaction Modal */}
-      <Dialog 
-        open={openInteractionModal} 
-        onClose={() => setOpenInteractionModal(false)}
-        maxWidth="sm"
-        fullWidth
-      >
-        <DialogTitle className="dialog-title">
-          Log Customer Interaction
-        </DialogTitle>
-        <DialogContent className="dialog-content">
-          <Box sx={{ mt: 2 }}>
-            <Typography variant="subtitle1" gutterBottom>
-              Customer: {selectedCustomer?.name}
-            </Typography>
-            <FormControl fullWidth margin="normal">
-              <InputLabel>Interaction Type</InputLabel>
-              <Select
+      {/* Add Interaction Modal */}
+      {openInteractionModal && selectedCustomer && (
+        <div className="modal-overlay">
+          <div className="modal-container">
+            <div className="modal-header">
+              <h2>Log Interaction with {selectedCustomer.name}</h2>
+              <button className="close-modal" onClick={() => setOpenInteractionModal(false)}>×</button>
+            </div>
+            <div className="modal-body">
+              <div className="form-group">
+                <label>Interaction Type</label>
+                <select
                 name="interaction_type"
+                  className="form-control"
                 value={interactionData.interaction_type}
                 onChange={handleInteractionChange}
-                error={!!interactionErrors.interaction_type}
-              >
-                <MenuItem value="Phone Call">Phone Call</MenuItem>
-                <MenuItem value="Email">Email</MenuItem>
-                <MenuItem value="In-Store Visit">In-Store Visit</MenuItem>
-                <MenuItem value="Support Ticket">Support Ticket</MenuItem>
-                <MenuItem value="Other">Other</MenuItem>
-              </Select>
-              {interactionErrors.interaction_type && (
-                <Typography color="error" variant="caption">
-                  {interactionErrors.interaction_type}
-                </Typography>
-              )}
-            </FormControl>
-            <TextField
+                >
+                  <option value="">Select interaction type</option>
+                  <option value="Phone Call">Phone Call</option>
+                  <option value="Email">Email</option>
+                  <option value="In-Store Visit">In-Store Visit</option>
+                  <option value="Social Media">Social Media</option>
+                  <option value="Other">Other</option>
+                </select>
+                {interactionErrors.interaction_type && <div className="form-error">{interactionErrors.interaction_type}</div>}
+              </div>
+              
+              <div className="form-group">
+                <label>Details</label>
+                <textarea
               name="details"
-              label="Interaction Details"
-              fullWidth
-              margin="normal"
-              multiline
-              rows={4}
+                  className="form-control"
               value={interactionData.details}
               onChange={handleInteractionChange}
-              error={!!interactionErrors.details}
-              helperText={interactionErrors.details || "e.g., Discussed order #123"}
-            />
-          </Box>
-        </DialogContent>
-        <DialogActions className="dialog-actions">
-          <Button onClick={() => setOpenInteractionModal(false)} color="secondary">
-            Cancel
-          </Button>
-          <Button onClick={handleSubmitInteraction} color="primary" variant="contained" style={{ backgroundColor: '#3B3F51' }}>
-            Log Interaction
-          </Button>
-        </DialogActions>
-      </Dialog>
+                  rows="4"
+                  placeholder="Enter interaction details"
+                ></textarea>
+                {interactionErrors.details && <div className="form-error">{interactionErrors.details}</div>}
+              </div>
+            </div>
+            <div className="modal-footer">
+              <button className="modal-btn cancel" onClick={() => setOpenInteractionModal(false)}>Cancel</button>
+              <button className="modal-btn save" onClick={handleSubmitInteraction}>Save Interaction</button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Customer Details Modal */}
-      <Dialog 
-        open={openDetailsModal} 
-        onClose={() => setOpenDetailsModal(false)}
-        maxWidth="md"
-        fullWidth
-      >
-        <DialogTitle className="dialog-title">
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-            <span>Customer Details: {selectedCustomer?.name}</span>
-            <IconButton onClick={() => setOpenDetailsModal(false)} size="small">
-              <FaTimes />
-            </IconButton>
+      {openDetailsModal && selectedCustomer && (
+        <div className="modal-overlay">
+          <div className="modal-container">
+            <div className="modal-header">
+              <h2>Customer Details: {selectedCustomer.name}</h2>
+              <button className="close-modal" onClick={() => setOpenDetailsModal(false)}>×</button>
+            </div>
+            <div className="modal-body">
+              <div className="tabs-container">
+                <div className="tabs">
+                  <div className={`tab ${tabValue === 0 ? 'active' : ''}`} onClick={() => handleTabChange(0)}>
+                    Profile
+                  </div>
+                  <div className={`tab ${tabValue === 1 ? 'active' : ''}`} onClick={() => handleTabChange(1)}>
+                    Interactions
+                  </div>
           </div>
-        </DialogTitle>
-        <DialogContent className="dialog-content">
-          <Box sx={{ borderBottom: 1, borderColor: 'divider', mb: 2 }}>
-            <Tabs value={tabValue} onChange={handleTabChange}>
-              <Tab label="Profile" />
-              <Tab label="Interactions" />
-            </Tabs>
-          </Box>
-          
+                
+                <div className="tab-content">
           {tabValue === 0 && (
-            <Box>
-              <TextField
-                name="name"
-                label="Customer Name"
-                fullWidth
-                margin="normal"
-                value={formData.name}
-                onChange={handleFormChange}
-                error={!!formErrors.name}
-                helperText={formErrors.name}
-              />
-              <TextField
-                name="contact_info"
-                label="Contact Info"
-                fullWidth
-                margin="normal"
-                value={formData.contact_info}
-                onChange={handleFormChange}
-                error={!!formErrors.contact_info}
-                helperText={formErrors.contact_info}
-              />
-              <TextField
-                name="credit_limit"
-                label="Credit Limit"
-                fullWidth
-                margin="normal"
-                value={formData.credit_limit}
-                onChange={handleFormChange}
-                error={!!formErrors.credit_limit}
-                helperText={formErrors.credit_limit}
-                InputProps={{
-                  startAdornment: <InputAdornment position="start">$</InputAdornment>,
-                }}
-              />
-              <Box sx={{ mt: 2, display: 'flex', justifyContent: 'flex-end' }}>
-                <Button 
-                  onClick={() => {
-                    handleSubmitCustomer();
-                    setOpenDetailsModal(false);
-                  }} 
-                  color="primary" 
-                  variant="contained"
-                  style={{ backgroundColor: '#3B3F51' }}
-                >
-                  Save Changes
-                </Button>
-              </Box>
-            </Box>
+                    <div className="customer-profile">
+                      <div className="form-group">
+                        <div className="customer-details-label">Customer ID</div>
+                        <div className="customer-details-value">#{selectedCustomer.id}</div>
+                      </div>
+                      
+                      <div className="form-group">
+                        <div className="customer-details-label">Full Name</div>
+                        <div className="customer-details-value">{selectedCustomer.name}</div>
+                      </div>
+                      
+                      <div className="form-group">
+                        <div className="customer-details-label">Email Address</div>
+                        <div className="customer-details-value">{selectedCustomer.contact_info}</div>
+                      </div>
+                      
+                      <div className="form-group">
+                        <div className="customer-details-label">Phone Number</div>
+                        <div className="customer-details-value">{selectedCustomer.phone}</div>
+                      </div>
+                      
+                      <div className="form-group">
+                        <div className="customer-details-label">Credit Status</div>
+                        <div className="customer-details-value">
+                          <span className={`customer-credit-status ${getCreditStatus(selectedCustomer.credit_used, selectedCustomer.credit_limit)}`}>
+                            ₹{selectedCustomer.credit_used} used of ₹{selectedCustomer.credit_limit} limit
+                          </span>
+                        </div>
+                      </div>
+                      
+                      <div className="form-group">
+                        <div className="customer-details-label">Last Purchase Date</div>
+                        <div className="customer-details-value">{formatDate(selectedCustomer.last_purchase)}</div>
+                      </div>
+                      
+                      <div className="form-group">
+                        <div className="customer-details-label">Account Status</div>
+                        <div className="customer-details-value">
+                          <span className={`customer-credit-status ${selectedCustomer.status === 'Active' ? 'credit-good' : selectedCustomer.status === 'Inactive' ? 'credit-moderate' : 'credit-low'}`}>
+                            {selectedCustomer.status}
+                          </span>
+                        </div>
+                      </div>
+                    </div>
           )}
           
           {tabValue === 1 && (
-            <Box>
-              <Box sx={{ mb: 2, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                <Typography variant="subtitle1">
-                  Interaction History
-                </Typography>
-                <Button
-                  variant="contained"
-                  color="primary"
-                  size="small"
-                  startIcon={<FaPhone />}
-                  onClick={() => {
-                    setOpenDetailsModal(false);
-                    handleAddInteraction(selectedCustomer);
-                  }}
-                  style={{ backgroundColor: '#3B3F51' }}
-                >
-                  New Interaction
-                </Button>
-              </Box>
-              
-              <div style={{ height: 400, width: '100%' }}>
-                {interactions.length > 0 ? (
-                  <DataGrid
-                    rows={interactions}
-                    columns={interactionColumns}
-                    pageSize={5}
-                    checkboxSelection={false}
-                    disableSelectionOnClick
-                  />
-                ) : (
-                  <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '100%' }}>
-                    <Typography color="textSecondary">
-                      No interaction history found for this customer
-                    </Typography>
-                  </Box>
-                )}
+                    <div className="customer-interactions">
+                      <div className="form-group">
+                        <button className="add-customer-btn" onClick={() => handleAddInteraction(selectedCustomer)}>
+                          <FaPhone /> Add New Interaction
+                        </button>
+                      </div>
+                      
+                      {interactions.length === 0 ? (
+                        <p>No interaction history found for this customer.</p>
+                      ) : (
+                        <table className="customer-table">
+                          <thead>
+                            <tr>
+                              <th>Date</th>
+                              <th>Type</th>
+                              <th>Details</th>
+                            </tr>
+                          </thead>
+                          <tbody>
+                            {interactions.map(interaction => (
+                              <tr key={interaction.id}>
+                                <td>{formatDate(interaction.date)}</td>
+                                <td>{interaction.interaction_type}</td>
+                                <td>{interaction.details}</td>
+                              </tr>
+                            ))}
+                          </tbody>
+                        </table>
+                      )}
+                    </div>
+                  )}
+                </div>
               </div>
-            </Box>
-          )}
-        </DialogContent>
-      </Dialog>
-
-      {/* Toast Notification */}
-      {showToast && (
-        <div className={`toast-notification ${toastType}`}>
-          {toastMessage}
+            </div>
+            <div className="modal-footer">
+              <button className="modal-btn cancel" onClick={() => setOpenDetailsModal(false)}>Close</button>
+              <button className="modal-btn save" onClick={() => handleEditCustomer(selectedCustomer)}>Edit Customer</button>
+            </div>
+          </div>
         </div>
       )}
     </div>

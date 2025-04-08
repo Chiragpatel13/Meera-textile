@@ -1,25 +1,24 @@
+// Use the proxy configuration from package.json
+// No need to specify the full URL as it will be proxied
+
+// Simulated API responses
+const SIMULATED_DELAY = 1500;
+
 export const login = async (credentials) => {
     try {
-        const response = await fetch('/api/auth/login', {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json',
-            },
-            body: JSON.stringify(credentials),
-            credentials: 'include'
-        });
-
-        if (!response.ok) {
-            if (response.headers.get('content-type')?.includes('application/json')) {
-                const errorData = await response.json();
-                throw new Error(errorData.error || 'Login failed');
-            } else {
-                throw new Error('Login failed - server error');
+        console.log('Simulated login with:', credentials);
+        
+        // Simulate network delay
+        await new Promise(resolve => setTimeout(resolve, SIMULATED_DELAY));
+        
+        // Simulate successful login
+        return {
+            token: 'simulated-jwt-token',
+            user: {
+                username: credentials.username,
+                role: 'STORE_MANAGER'
             }
-        }
-
-        const data = await response.json();
-        return data;
+        };
     } catch (error) {
         console.error('Login error:', error);
         throw error;
@@ -28,20 +27,32 @@ export const login = async (credentials) => {
 
 export const fetchUserProfile = async () => {
     try {
-        const response = await fetch('/api/user/profile', {
-            headers: {
-                'Authorization': `Bearer ${localStorage.getItem('token')}`
-            },
-            credentials: 'include'
-        });
-
-        if (!response.ok) {
-            throw new Error('Failed to fetch user profile');
-        }
-
-        return await response.json();
+        // Simulate network delay
+        await new Promise(resolve => setTimeout(resolve, SIMULATED_DELAY));
+        
+        // Simulate user profile data
+        return {
+            username: 'Admin User',
+            email: 'admin@miratextile.com',
+            role: 'STORE_MANAGER'
+        };
     } catch (error) {
         console.error('Error fetching user profile:', error);
+        throw error;
+    }
+};
+
+export const forgotPassword = async (email) => {
+    try {
+        // Simulate network delay
+        await new Promise(resolve => setTimeout(resolve, SIMULATED_DELAY));
+        
+        // Simulate successful password reset request
+        return {
+            message: 'Password reset instructions have been sent to your email.'
+        };
+    } catch (error) {
+        console.error('Forgot password error:', error);
         throw error;
     }
 }; 

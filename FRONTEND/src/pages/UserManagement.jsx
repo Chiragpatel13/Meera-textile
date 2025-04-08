@@ -1,61 +1,36 @@
 import React, { useState, useEffect } from 'react';
-import { DataGrid } from '@mui/x-data-grid';
+import { Link, useNavigate } from 'react-router-dom';
 import { 
-  Button, 
-  Dialog, 
-  DialogActions, 
-  DialogContent, 
-  DialogTitle,
-  TextField,
-  MenuItem,
-  FormControl,
-  InputLabel,
-  Select,
-  Box,
-  IconButton,
-  Typography,
-  Snackbar,
-  Alert,
-  CircularProgress,
-  InputAdornment
-} from '@mui/material';
-import {
-  FaBox, 
-  FaShoppingCart, 
-  FaRupeeSign, 
-  FaFolder,
-  FaPlus, 
-  FaChartBar, 
-  FaUsers,
+  FaUserPlus, 
+  FaUserCircle, 
   FaBars,
-  FaUserCircle,
   FaSignOutAlt,
   FaKey,
+  FaCalendarAlt,
+  FaChartBar,
+  FaBox,
+  FaCashRegister,
+  FaUsers,
+  FaFolder,
   FaEdit,
   FaTrash,
   FaSearch,
-  FaUserPlus,
-  FaEye,
-  FaEyeSlash
+  FaFilter
 } from 'react-icons/fa';
-import { Link, useNavigate } from 'react-router-dom';
-import { AiFillIdcard } from 'react-icons/ai';
 import '../styles/dashboard.css';
-
-const API_BASE_URL = 'http://localhost:8082/api';
+import '../styles/UserManagement.css';
 
 const UserManagement = () => {
   const navigate = useNavigate();
   const [users, setUsers] = useState([]);
-  const [loading, setLoading] = useState(true);
-  const [openModal, setOpenModal] = useState(false);
-  const [openDeleteDialog, setOpenDeleteDialog] = useState(false);
-  const [userData, setUserData] = useState({
-    name: 'John Doe',
-    email: 'john.doe@example.com'
-  });
+  const [filteredUsers, setFilteredUsers] = useState([]);
+  const [searchTerm, setSearchTerm] = useState('');
+  const [isLoading, setIsLoading] = useState(true);
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
   const [userMenuOpen, setUserMenuOpen] = useState(false);
+  const [showAddModal, setShowAddModal] = useState(false);
+  const [showEditModal, setShowEditModal] = useState(false);
+  const [selectedUser, setSelectedUser] = useState(null);
   const [formData, setFormData] = useState({
     username: '',
     fullName: '',
@@ -64,103 +39,80 @@ const UserManagement = () => {
     role: 'SALES_STAFF'
   });
   const [formErrors, setFormErrors] = useState({});
-  const [isEditing, setIsEditing] = useState(false);
-  const [editUserId, setEditUserId] = useState(null);
-  const [userToDelete, setUserToDelete] = useState(null);
-  const [toast, setToast] = useState({
-    open: false,
-    message: '',
-    severity: 'success'
-  });
-  const [searchTerm, setSearchTerm] = useState('');
-  const [filteredUsers, setFilteredUsers] = useState([]);
-  const [showPassword, setShowPassword] = useState(false);
-  const [error, setError] = useState('');
   const [successMessage, setSuccessMessage] = useState('');
+  const [userData] = useState({
+    name: 'Admin User',
+    email: 'admin@miratextile.com'
+  });
+  const [errorMessage, setErrorMessage] = useState('');
 
   useEffect(() => {
     fetchUsers();
-    fetchUserData();
   }, []);
 
   useEffect(() => {
-    // Filter users based on search term
-    if (searchTerm.trim() === '') {
-      setFilteredUsers(users);
-    } else {
-      const filtered = users.filter(user => 
-        user.username.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        user.email.toLowerCase().includes(searchTerm.toLowerCase())
-      );
-      setFilteredUsers(filtered);
-    }
+    filterUsers();
   }, [searchTerm, users]);
 
   const fetchUsers = async () => {
+    setIsLoading(true);
     try {
-      const response = await fetch(`${API_BASE_URL}/admin/users`, {
-        headers: {
-          'Authorization': `Bearer ${localStorage.getItem('token')}`
+      // For demo purposes, using mock data
+      const mockUsers = [
+        {
+          id: 1,
+          username: 'john_doe',
+          fullName: 'John Doe',
+          email: 'john@example.com',
+          role: 'SALES_STAFF',
+          createdAt: new Date(),
+          active: true
+        },
+        {
+          id: 2,
+          username: 'jane_smith',
+          fullName: 'Jane Smith',
+          email: 'jane@example.com',
+          role: 'INVENTORY_STAFF',
+          createdAt: new Date(),
+          active: true
         }
-      });
+      ];
       
-      let responseData;
-      try {
-        responseData = await response.json();
-      } catch (e) {
-        responseData = { success: false, message: 'Failed to parse server response' };
-      }
-      
-      if (!response.ok || !responseData.success) {
-        throw new Error(responseData.message || 'Failed to fetch users');
-      }
-      
-      setUsers(responseData.data || []);
+      setUsers(mockUsers);
+      setFilteredUsers(mockUsers);
     } catch (error) {
       console.error('Error fetching users:', error);
-      setToast({
-        open: true,
-        message: error.message || 'Failed to fetch users',
-        severity: 'error'
-      });
+      setErrorMessage('Failed to fetch users');
+    } finally {
+      setIsLoading(false);
     }
   };
 
-  const fetchUserData = async () => {
-    try {
-      const token = localStorage.getItem('token');
-      if (!token) {
-        console.error('No authentication token found');
+  const filterUsers = () => {
+    if (!searchTerm) {
+      setFilteredUsers(users);
         return;
       }
 
-      const response = await fetch(`${API_BASE_URL}/admin/users/current`, {
-        headers: {
-          'Authorization': `Bearer ${token}`
-        }
-      });
-
-      if (!response.ok) {
-        throw new Error('Failed to fetch user data');
-      }
-
-      const data = await response.json();
-      if (data.success && data.data) {
-        setUserData({
-          name: data.data.fullName || 'Unknown User',
-          email: data.data.email || 'No email'
-        });
-      }
-    } catch (error) {
-      console.error('Error fetching user data:', error);
-    }
+    const filtered = users.filter(user => 
+      user.username.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      user.fullName.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      user.email.toLowerCase().includes(searchTerm.toLowerCase())
+    );
+    
+    setFilteredUsers(filtered);
   };
 
-  const handleLogout = () => {
-    if (window.confirm("Are you sure you want to logout?")) {
-      localStorage.clear();
-      sessionStorage.clear();
-      navigate('/Login');
+  const handleDeleteUser = async (userId) => {
+    if (window.confirm('Are you sure you want to delete this user?')) {
+      try {
+        // For demo purposes, just filter out the user
+        setUsers(prevUsers => prevUsers.filter(user => user.id !== userId));
+      } catch (error) {
+        console.error('Error deleting user:', error);
+        alert('Failed to delete user. Please try again.');
+      }
     }
   };
 
@@ -172,63 +124,25 @@ const UserManagement = () => {
     setUserMenuOpen(!userMenuOpen);
   };
 
-  const closeUserMenu = () => {
-    setUserMenuOpen(false);
+  const handleLogout = () => {
+    localStorage.clear();
+    navigate('/login');
   };
 
   const handleResetPassword = () => {
     navigate('/ResetPassword');
   };
+
   const handleUser = () => {
     navigate('/Profile');
   };
 
-  // Close user menu when clicking outside
-  useEffect(() => {
-    const handleClickOutside = (event) => {
-      if (userMenuOpen && !event.target.closest('.user-menu-container')) {
-        closeUserMenu();
-      }
-    };
-
-    document.addEventListener('mousedown', handleClickOutside);
-    return () => {
-      document.removeEventListener('mousedown', handleClickOutside);
-    };
-  }, [userMenuOpen]);
-
-  const handleOpenModal = (isEdit = false, user = null) => {
-    setIsEditing(isEdit);
-    if (isEdit && user) {
-      setEditUserId(user.userId);
-      setFormData({
-        username: user.username,
-        fullName: user.fullName,
-        email: user.email,
-        role: user.role
-      });
-    } else {
-      // Reset form for add
-      setFormData({
-        username: '',
-        fullName: '',
-        email: '',
-        role: 'SALES_STAFF'
-      });
-    }
-    setFormErrors({});
-    setOpenModal(true);
-  };
-
-  const handleCloseModal = () => {
-    setOpenModal(false);
-    setFormData({
-      username: '',
-      fullName: '',
-      email: '',
-      role: 'SALES_STAFF'
+  const formatDate = (dateString) => {
+    return new Date(dateString).toLocaleDateString('en-US', {
+      year: 'numeric',
+      month: 'short',
+      day: 'numeric'
     });
-    setFormErrors({});
   };
 
   const handleInputChange = (e) => {
@@ -237,182 +151,122 @@ const UserManagement = () => {
       ...formData,
       [name]: value
     });
-
-    // Clear specific error when field is edited
+    // Clear error when field is updated
     if (formErrors[name]) {
       setFormErrors({
         ...formErrors,
-        [name]: ''
+        [name]: null
       });
     }
   };
 
-  const validateForm = () => {
-    const errors = {};
-    
-    // Username validation
-    if (!formData.username?.trim()) {
-        errors.username = 'Username is required';
-    } else if (formData.username.trim().length < 3) {
-        errors.username = 'Username must be at least 3 characters';
-    }
-    
-    // Full name validation
-    if (!formData.fullName?.trim()) {
-        errors.fullName = 'Full name is required';
-    }
-    
-    // Email validation
-    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-    if (!formData.email?.trim()) {
-        errors.email = 'Email is required';
-    } else if (!emailRegex.test(formData.email.trim())) {
-        errors.email = 'Please enter a valid email address';
-    }
-    
-    // Role validation
-    if (!formData.role) {
-        errors.role = 'Role is required';
-    }
-    
-    // Password validation (only for new users)
-    if (!isEditing && formData.password?.trim().length < 8) {
-        errors.password = 'Password must be at least 8 characters';
-    }
-    
-    return errors;
+  const handleEditUser = (user) => {
+    setSelectedUser(user);
+    setFormData({
+      username: user.username,
+      fullName: user.fullName,
+      email: user.email,
+      password: '', // Don't show existing password
+      role: user.role
+    });
+    setShowEditModal(true);
   };
 
-  const handleSaveUser = async () => {
+  const handleUpdateUser = async (e) => {
+    e.preventDefault();
+    if (!validateForm(true)) return;
+
+    setIsLoading(true);
+    setErrorMessage('');
+    setSuccessMessage('');
+
     try {
-        // Validate form
-        const errors = validateForm();
-        if (Object.keys(errors).length > 0) {
-            setFormErrors(errors);
-            setToast({
-                open: true,
-                message: 'Please fill in all required fields correctly',
-                severity: 'error'
-            });
-            return;
+      // Update user in the local state
+      const updatedUsers = users.map(user => {
+        if (user.id === selectedUser.id) {
+          return {
+            ...user,
+            username: formData.username,
+            fullName: formData.fullName,
+            email: formData.email,
+            role: formData.role,
+            // Only update password if a new one is provided
+            ...(formData.password && { password: formData.password })
+          };
         }
+        return user;
+      });
 
-        // Create request data
-        const requestData = {
-            username: formData.username.trim(),
-            fullName: formData.fullName.trim(),
-            email: formData.email.trim(),
-            role: formData.role
-        };
+      setUsers(updatedUsers);
+      setSuccessMessage('User updated successfully!');
+      
+      setTimeout(() => {
+        setShowEditModal(false);
+        resetForm();
+      }, 1500);
 
-        // Only include password if it's provided (for new users or password changes)
-        if (formData.password && formData.password.trim()) {
-            requestData.password = formData.password.trim();
-        }
+    } catch (error) {
+      console.error('Error updating user:', error);
+      setErrorMessage('Failed to update user. Please try again.');
+    } finally {
+      setIsLoading(false);
+    }
+  };
 
-        console.log('Sending request data:', requestData);
+  const validateForm = (isEdit = false) => {
+    const errors = {};
+    if (!formData.username.trim()) errors.username = 'Username is required';
+    if (!formData.fullName.trim()) errors.fullName = 'Full name is required';
+    if (!formData.email.trim()) errors.email = 'Email is required';
+    if (!isEdit && !formData.password.trim()) errors.password = 'Password is required';
+    if (formData.password.trim() && formData.password.length < 8) {
+        errors.password = 'Password must be at least 8 characters';
+    }
+    if (!formData.role) errors.role = 'Role is required';
 
-        const token = localStorage.getItem('token');
-        if (!token) {
-            setToast({
-                open: true,
-                message: 'Authentication token not found. Please login again.',
-                severity: 'error'
-            });
-            return;
-        }
+    setFormErrors(errors);
+    return Object.keys(errors).length === 0;
+  };
 
-        // Log the full request details for debugging
-        console.log('API URL:', `${API_BASE_URL}/admin/users`);
-        console.log('Request headers:', {
-            'Content-Type': 'application/json',
-            'Authorization': `Bearer ${token.substring(0, 10)}...` // Only log part of the token for security
-        });
-        console.log('Request body:', JSON.stringify(requestData, null, 2));
+  const handleAddUser = async (e) => {
+    e.preventDefault();
+    if (!validateForm()) return;
 
-        const response = await fetch(`${API_BASE_URL}/admin/users`, {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json',
-                'Authorization': `Bearer ${token}`
-            },
-            body: JSON.stringify(requestData)
-        });
+    setIsLoading(true);
+    setErrorMessage('');
+    setSuccessMessage('');
 
-        console.log('Response status:', response.status);
-        console.log('Response headers:', Object.fromEntries([...response.headers]));
-        
-        const responseText = await response.text();
-        console.log('Raw response:', responseText);
+    try {
+      // For demo purposes, create a new user object
+      const newUser = {
+        id: users.length + 1,
+        username: formData.username,
+        fullName: formData.fullName,
+        email: formData.email,
+        role: formData.role,
+        createdAt: new Date(),
+        active: true
+      };
 
-        let data;
-        try {
-            data = JSON.parse(responseText);
-            console.log('Parsed response data:', data);
-        } catch (parseError) {
-            console.error('Error parsing response:', parseError);
-            console.error('Response text that failed to parse:', responseText);
-            setToast({
-                open: true,
-                message: `Invalid response from server: ${parseError.message}. Please check server logs.`,
-                severity: 'error'
-            });
-            return;
-        }
+      // Add the new user to the existing users array
+      setUsers(prevUsers => [...prevUsers, newUser]);
+      setSuccessMessage('User created successfully!');
+      
+      // Close modal and reset form after a short delay
+      setTimeout(() => {
+        setShowAddModal(false);
+        resetForm();
+      }, 1500);
 
-        if (!response.ok) {
-            console.error('Error response:', data);
-            if (data.message) {
-                if (data.message.includes('already taken')) {
-                    setFormErrors({ username: 'Username is already taken' });
-                    setToast({
-                        open: true,
-                        message: 'Username is already taken',
-                        severity: 'error'
-                    });
-                } else if (data.message.includes('already registered')) {
-                    setFormErrors({ email: 'Email is already registered' });
-                    setToast({
-                        open: true,
-                        message: 'Email is already registered',
-                        severity: 'error'
-                    });
-                } else if (data.message.includes('Role must be either SALES_STAFF or INVENTORY_STAFF')) {
-                    setFormErrors({ role: 'Invalid role selected' });
-                    setToast({
-                        open: true,
-                        message: 'Invalid role selected. Must be either SALES_STAFF or INVENTORY_STAFF',
-                        severity: 'error'
-                    });
-                } else {
-                    setToast({
-                        open: true,
-                        message: data.message || 'Failed to save user',
-                        severity: 'error'
-                    });
-                }
-            } else {
-                setToast({
-                    open: true,
-                    message: `Failed to save user. Server returned status ${response.status}. Please check server logs.`,
-                    severity: 'error'
-                });
-            }
-            return;
-        }
+    } catch (error) {
+      console.error('Error creating user:', error);
+      setErrorMessage('Failed to create user. Please try again.');
+    } finally {
+      setIsLoading(false);
+    }
+  };
 
-        // Show success message
-        setToast({
-            open: true,
-            message: 'User created successfully! A password has been sent to their email.',
-            severity: 'success'
-        });
-        
-        // Refresh the users list
-        await fetchUsers();
-        
-        // Close modal and clear form
-        handleCloseModal();
+  const resetForm = () => {
         setFormData({
             username: '',
             fullName: '',
@@ -420,182 +274,65 @@ const UserManagement = () => {
             password: '',
             role: 'SALES_STAFF'
         });
-    } catch (err) {
-        console.error('Error in handleSaveUser:', err);
-        console.error('Error details:', {
-            name: err.name,
-            message: err.message,
-            stack: err.stack
-        });
-        setToast({
-            open: true,
-            message: `Error: ${err.message}. Please check server logs.`,
-            severity: 'error'
-        });
-    }
+    setFormErrors({});
+    setErrorMessage('');
+    setSuccessMessage('');
   };
 
-  const handleOpenDeleteDialog = (user) => {
-    setUserToDelete(user);
-    setOpenDeleteDialog(true);
+  const handleCloseAddModal = () => {
+    setShowAddModal(false);
+    resetForm();
   };
 
-  const handleCloseDeleteDialog = () => {
-    setOpenDeleteDialog(false);
-    setUserToDelete(null);
+  const handleCloseEditModal = () => {
+    setShowEditModal(false);
+    resetForm();
   };
 
-  const handleDeleteUser = async () => {
-    if (!userToDelete) return;
-    
-    try {
-      const response = await fetch(`${API_BASE_URL}/admin/users/${userToDelete.userId}/deactivate`, {
-        method: 'POST',
-        headers: {
-          'Authorization': `Bearer ${localStorage.getItem('token')}`
-        }
-      });
-      
-      if (!response.ok) {
-        throw new Error('Failed to deactivate user');
-      }
-      
-      await fetchUsers(); // Refresh the user list
-      setToast({
-        open: true,
-        message: 'User deactivated successfully',
-        severity: 'success'
-      });
-      
-      handleCloseDeleteDialog();
-    } catch (error) {
-      console.error('Error deactivating user:', error);
-      setToast({
-        open: true,
-        message: error.message || 'Failed to deactivate user',
-        severity: 'error'
-      });
-    }
-  };
-
-  const handleCloseToast = () => {
-    setToast({
-      ...toast,
-      open: false
-    });
-  };
-
-  const handleActivateUser = async (user) => {
-    try {
-      const response = await fetch(`${API_BASE_URL}/admin/users/${user.userId}/activate`, {
-        method: 'POST',
-        headers: {
-          'Authorization': `Bearer ${localStorage.getItem('token')}`
-        }
-      });
-      
-      if (!response.ok) {
-        throw new Error('Failed to activate user');
-      }
-      
-      await fetchUsers(); // Refresh the user list
-      setToast({
-        open: true,
-        message: 'User activated successfully',
-        severity: 'success'
-      });
-    } catch (error) {
-      console.error('Error activating user:', error);
-      setToast({
-        open: true,
-        message: error.message || 'Failed to activate user',
-        severity: 'error'
-      });
-    }
-  };
-
-  const columns = [
-    { field: 'userId', headerName: 'ID', width: 70 },
-    { field: 'username', headerName: 'Username', width: 180 },
-    { field: 'fullName', headerName: 'Full Name', width: 180 },
-    { field: 'email', headerName: 'Email', width: 240 },
-    { field: 'role', headerName: 'Role', width: 160 },
-    { field: 'isActive', headerName: 'Status', width: 120, 
-      renderCell: (params) => (
-        <span style={{ color: params.value ? 'green' : 'red' }}>
-          {params.value ? 'Active' : 'Inactive'}
-        </span>
-      )
-    },
-    { field: 'createdAt', headerName: 'Created At', width: 180,
-      valueFormatter: (params) => {
-        if (!params.value) return '';
-        return new Date(params.value).toLocaleString();
-      }
-    },
-    {
-      field: 'actions',
-      headerName: 'Actions',
-      width: 180,
-      sortable: false,
-      renderCell: (params) => (
-        <Box>
-          <IconButton
-            size="small"
-            color="primary"
-            onClick={() => handleOpenModal(true, params.row)}
-          >
+  const renderTableActions = (user) => (
+    <div className="user-actions">
+      <button className="action-btn edit-btn" onClick={() => handleEditUser(user)}>
             <FaEdit />
-          </IconButton>
-          {params.row.isActive ? (
-            <IconButton
-              size="small"
-              color="error"
-              onClick={() => handleOpenDeleteDialog(params.row)}
-            >
+      </button>
+      <button className="action-btn delete-btn" onClick={() => handleDeleteUser(user.id)}>
               <FaTrash />
-            </IconButton>
-          ) : (
-            <IconButton
-              size="small"
-              color="success"
-              onClick={() => handleActivateUser(params.row)}
-            >
-              <FaUserPlus />
-            </IconButton>
-          )}
-        </Box>
-      )
-    }
-  ];
+      </button>
+    </div>
+  );
 
   return (
     <div className="admin-dashboard">
       {/* Sidebar */}
       <div className={`sidebar ${sidebarCollapsed ? 'collapsed' : ''}`}>
         <div className="sidebar-header">
-          <h3>Store Manager</h3>
+          <h3>Mira Textile</h3>
           <button className="collapse-btn" onClick={toggleSidebar}>
             <FaBars />
           </button>
         </div>
         <ul className="sidebar-menu">
-          <li><Link to="/dashboard"><FaChartBar /> <span>Dashboard</span></Link></li>
-          <li><Link to="/InventoryManagement"><FaBox /> <span>Inventory</span></Link></li>
-          <li><Link to="/orders"><FaShoppingCart /> <span>Orders</span></Link></li>
-          <li><Link to="/customers"><FaUsers /> <span>Customers</span></Link></li>
-          <li><Link to="/reports"><FaFolder /> <span>Reports</span></Link></li>
+          <li className="active"><Link to="/dashboard"><FaChartBar /> <span>Dashboard</span></Link></li>
+          <li><Link to="/inventory/manage"><FaBox /> <span>Inventory</span></Link></li>
+          <li><Link to="/pos"><FaCashRegister /> <span>POS</span></Link></li>
+          <li><Link to="/CustomerManagement"><FaUsers /> <span>Customers</span></Link></li>
+          <li><Link to="/Reportingpage"><FaFolder /> <span>Reports</span></Link></li>
         </ul>
       </div>
 
       {/* Main Content */}
-      <div className="main-content">
+      <div className="main-content" style={{ marginLeft: sidebarCollapsed ? '70px' : '240px' }}>
         {/* Top Bar */}
         <div className="top-bar">
           <div className="page-title">
             <h1>User Management</h1>
+            <p className="subtitle">Manage system users and their permissions</p>
           </div>
           <div className="top-bar-actions">
+            <div className="date-display">
+              <FaCalendarAlt />
+              <span>{new Date().toLocaleDateString('en-US', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })}</span>
+            </div>
+            
             <div className="user-menu-container">
               <button className="user-menu-btn" onClick={toggleUserMenu}>
                 <FaUserCircle />
@@ -610,14 +347,15 @@ const UserManagement = () => {
                     <div className="user-details">
                       <h3>{userData.name}</h3>
                       <p>{userData.email}</p>
+                      <span className="user-role">Admin</span>
                     </div>
                   </div>
                   <div className="user-actions">
+                    <button className="view-profile-btn" onClick={handleUser}>
+                      <FaUserCircle /> View Profile
+                    </button>
                     <button className="reset-password-btn" onClick={handleResetPassword}>
                       <FaKey /> Reset Password
-                    </button>
-                    <button className="reset-password-btn" onClick={handleUser}>
-                      <AiFillIdcard /> User Profile
                     </button>
                     <button className="logout-btn" onClick={handleLogout}>
                       <FaSignOutAlt /> Logout
@@ -630,175 +368,276 @@ const UserManagement = () => {
         </div>
 
         {/* User Management Content */}
-        <div className="dashboard-content">
-          <div className="card">
-            <div className="card-header" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-              <h2>System Users</h2>
-              <div style={{ display: 'flex', gap: '10px' }}>
-                <TextField
-                  size="small"
-                  placeholder="Search users..."
+        <div className="users-page">
+          {/* Search and Actions Bar */}
+          <div className="users-actions-bar">
+            <div className="search-filter-container">
+              <div className="search-box">
+                <FaSearch />
+                <input
+                  type="text"
+                  className="search-input"
+                  placeholder="Search by name, username or email..."
                   value={searchTerm}
                   onChange={(e) => setSearchTerm(e.target.value)}
-                  InputProps={{
-                    startAdornment: (
-                      <InputAdornment position="start">
-                        <FaSearch />
-                      </InputAdornment>
-                    ),
-                  }}
                 />
-                <Button 
-                  variant="contained" 
-                  color="primary" 
-                  startIcon={<FaPlus />}
-                  onClick={() => handleOpenModal(false)}
-                >
-                  Add User
-                </Button>
               </div>
             </div>
-            <div className="card-body">
-              {loading ? (
-                <Box display="flex" justifyContent="center" alignItems="center" height="400px">
-                  <CircularProgress />
-                </Box>
+            <button className="add-user-btn" onClick={() => setShowAddModal(true)}>
+              <FaUserPlus /> Add New User
+            </button>
+          </div>
+          
+          {/* Users Table */}
+          <div className="users-card">
+            <div className="users-table-header">
+              <h2>User List</h2>
+            </div>
+            <div className="users-table-container">
+              {isLoading ? (
+                <div className="loading-state">Loading user data...</div>
               ) : (
-                <Box sx={{ height: 400, width: '100%' }}>
-                  <DataGrid
-                    rows={filteredUsers}
-                    columns={columns}
-                    pageSize={10}
-                    rowsPerPageOptions={[10]}
-                    disableSelectionOnClick
-                  />
-                </Box>
+                <table className="users-table">
+                  <thead>
+                    <tr>
+                      <th>Username</th>
+                      <th>Full Name</th>
+                      <th>Email</th>
+                      <th>Role</th>
+                      <th>Created At</th>
+                      <th>Status</th>
+                      <th>Actions</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {filteredUsers.map(user => (
+                      <tr key={user.id}>
+                        <td>{user.username}</td>
+                        <td>{user.fullName}</td>
+                        <td>{user.email}</td>
+                        <td>
+                          <span className={`role-badge ${user.role.toLowerCase()}`}>
+                            {user.role}
+                          </span>
+                        </td>
+                        <td>{formatDate(user.createdAt)}</td>
+                        <td>
+                          <span className={`status-badge ${user.active ? 'active' : 'inactive'}`}>
+                            {user.active ? 'Active' : 'Inactive'}
+                          </span>
+                        </td>
+                        <td>
+                          {renderTableActions(user)}
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
               )}
             </div>
           </div>
         </div>
+      </div>
 
-        {/* Add/Edit User Modal */}
-        <Dialog open={openModal} onClose={handleCloseModal} maxWidth="sm" fullWidth>
-          <DialogTitle>{isEditing ? 'Edit User' : 'Add New User'}</DialogTitle>
-          <DialogContent>
-            <Box component="form" sx={{ mt: 2 }}>
-              <TextField
-                fullWidth
-                required
-                margin="normal"
-                label="Username"
+      {/* Add User Modal */}
+      {showAddModal && (
+        <div className="modal-overlay">
+          <div className="modal-container">
+            <div className="modal-header">
+              <h2>Add New User</h2>
+              <button className="close-modal" onClick={handleCloseAddModal}>&times;</button>
+            </div>
+            <div className="modal-body">
+              {successMessage && (
+                <div className="success-message">{successMessage}</div>
+              )}
+              {errorMessage && (
+                <div className="error-message">{errorMessage}</div>
+              )}
+              
+              <form onSubmit={handleAddUser}>
+                <div className="form-group">
+                  <label htmlFor="username">Username*</label>
+                  <input
+                    type="text"
+                    id="username"
                 name="username"
                 value={formData.username}
                 onChange={handleInputChange}
-                placeholder="e.g., jane_doe"
-                error={!!formErrors.username}
-                helperText={formErrors.username}
-                disabled={isEditing}
-              />
-              <TextField
-                fullWidth
-                required
-                margin="normal"
-                label="Full Name"
+                    placeholder="Enter username"
+                    className={formErrors.username ? 'error' : ''}
+                  />
+                  {formErrors.username && <span className="error-message">{formErrors.username}</span>}
+                </div>
+
+                <div className="form-group">
+                  <label htmlFor="fullName">Full Name*</label>
+                  <input
+                    type="text"
+                    id="fullName"
                 name="fullName"
                 value={formData.fullName}
                 onChange={handleInputChange}
-                placeholder="e.g., Jane Doe"
-                error={!!formErrors.fullName}
-                helperText={formErrors.fullName}
-              />
-              <TextField
-                fullWidth
-                required
-                margin="normal"
-                label="Email"
+                    placeholder="Enter full name"
+                    className={formErrors.fullName ? 'error' : ''}
+                  />
+                  {formErrors.fullName && <span className="error-message">{formErrors.fullName}</span>}
+                </div>
+
+                <div className="form-group">
+                  <label htmlFor="email">Email Address*</label>
+                  <input
+                    type="email"
+                    id="email"
                 name="email"
-                type="email"
                 value={formData.email}
                 onChange={handleInputChange}
-                placeholder="e.g., jane@example.com"
-                error={!!formErrors.email}
-                helperText={formErrors.email}
-              />
-              <TextField
-                fullWidth
-                margin="normal"
-                label={isEditing ? "Password (leave blank to keep current)" : "Password"}
+                    placeholder="Enter email address"
+                    className={formErrors.email ? 'error' : ''}
+                  />
+                  {formErrors.email && <span className="error-message">{formErrors.email}</span>}
+                </div>
+
+                <div className="form-group">
+                  <label htmlFor="password">Password*</label>
+                  <input
+                    type="password"
+                    id="password"
                 name="password"
-                type={showPassword ? "text" : "password"}
                 value={formData.password}
                 onChange={handleInputChange}
-                placeholder={isEditing ? "Leave blank to keep current password" : "Minimum 8 characters"}
-                error={!!formErrors.password}
-                helperText={formErrors.password}
-                required={!isEditing}
-                InputProps={{
-                  endAdornment: (
-                    <InputAdornment position="end">
-                      <IconButton
-                        aria-label="toggle password visibility"
-                        onClick={() => setShowPassword(!showPassword)}
-                        edge="end"
-                      >
-                        {showPassword ? <FaEyeSlash /> : <FaEye />}
-                      </IconButton>
-                    </InputAdornment>
-                  ),
-                }}
-              />
-              <FormControl fullWidth margin="normal" error={!!formErrors.role} required>
-                <InputLabel>Role</InputLabel>
-                <Select
+                    placeholder="Enter password"
+                    className={formErrors.password ? 'error' : ''}
+                  />
+                  {formErrors.password && <span className="error-message">{formErrors.password}</span>}
+                </div>
+
+                <div className="form-group">
+                  <label htmlFor="role">Role*</label>
+                  <select
+                    id="role"
                   name="role"
                   value={formData.role}
                   onChange={handleInputChange}
-                  label="Role"
-                >
-                  <MenuItem value="STORE_MANAGER">Store Manager</MenuItem>
-                  <MenuItem value="SALES_STAFF">Sales Staff</MenuItem>
-                  <MenuItem value="INVENTORY_STAFF">Inventory Staff</MenuItem>
-                </Select>
-                {formErrors.role && (
-                  <Typography variant="caption" color="error">
-                    {formErrors.role}
-                  </Typography>
-                )}
-              </FormControl>
-            </Box>
-          </DialogContent>
-          <DialogActions>
-            <Button onClick={handleCloseModal} variant="outlined">Cancel</Button>
-            <Button onClick={handleSaveUser} variant="contained" color="primary">Save</Button>
-          </DialogActions>
-        </Dialog>
+                    className={formErrors.role ? 'error' : ''}
+                  >
+                    <option value="SALES_STAFF">Sales Staff</option>
+                    <option value="INVENTORY_STAFF">Inventory Staff</option>
+                  </select>
+                  {formErrors.role && <span className="error-message">{formErrors.role}</span>}
+                </div>
 
-        {/* Delete Confirmation Dialog */}
-        <Dialog open={openDeleteDialog} onClose={handleCloseDeleteDialog}>
-          <DialogTitle>Confirm Deactivation</DialogTitle>
-          <DialogContent>
-            <Typography>
-              Are you sure you want to deactivate {userToDelete?.username}? The user will no longer be able to access the system.
-            </Typography>
-          </DialogContent>
-          <DialogActions>
-            <Button onClick={handleCloseDeleteDialog} variant="outlined">Cancel</Button>
-            <Button onClick={handleDeleteUser} variant="contained" color="error">Deactivate</Button>
-          </DialogActions>
-        </Dialog>
+                <div className="modal-footer">
+                  <button type="button" className="cancel-btn" onClick={handleCloseAddModal}>Cancel</button>
+                  <button type="submit" className="submit-btn" disabled={isLoading}>
+                    {isLoading ? 'Creating...' : 'Create User'}
+                  </button>
+                </div>
+              </form>
+            </div>
+          </div>
+        </div>
+      )}
 
-        {/* Toast Notification */}
-        <Snackbar 
-          open={toast.open} 
-          autoHideDuration={6000} 
-          onClose={handleCloseToast}
-          anchorOrigin={{ vertical: 'bottom', horizontal: 'right' }}
-        >
-          <Alert onClose={handleCloseToast} severity={toast.severity} sx={{ width: '100%' }}>
-            {toast.message}
-          </Alert>
-        </Snackbar>
+      {/* Edit User Modal */}
+      {showEditModal && (
+        <div className="modal-overlay">
+          <div className="modal-container">
+            <div className="modal-header">
+              <h2>Edit User</h2>
+              <button className="close-modal" onClick={handleCloseEditModal}>&times;</button>
+            </div>
+            <div className="modal-body">
+              {successMessage && (
+                <div className="success-message">{successMessage}</div>
+              )}
+              {errorMessage && (
+                <div className="error-message">{errorMessage}</div>
+              )}
+              
+              <form onSubmit={handleUpdateUser}>
+                <div className="form-group">
+                  <label htmlFor="username">Username*</label>
+                  <input
+                    type="text"
+                    id="username"
+                    name="username"
+                    value={formData.username}
+                    onChange={handleInputChange}
+                    placeholder="Enter username"
+                    className={formErrors.username ? 'error' : ''}
+                  />
+                  {formErrors.username && <span className="error-message">{formErrors.username}</span>}
+                </div>
+
+                <div className="form-group">
+                  <label htmlFor="fullName">Full Name*</label>
+                  <input
+                    type="text"
+                    id="fullName"
+                    name="fullName"
+                    value={formData.fullName}
+                    onChange={handleInputChange}
+                    placeholder="Enter full name"
+                    className={formErrors.fullName ? 'error' : ''}
+                  />
+                  {formErrors.fullName && <span className="error-message">{formErrors.fullName}</span>}
+                </div>
+
+                <div className="form-group">
+                  <label htmlFor="email">Email Address*</label>
+                  <input
+                    type="email"
+                    id="email"
+                    name="email"
+                    value={formData.email}
+                    onChange={handleInputChange}
+                    placeholder="Enter email address"
+                    className={formErrors.email ? 'error' : ''}
+                  />
+                  {formErrors.email && <span className="error-message">{formErrors.email}</span>}
+                </div>
+
+                <div className="form-group">
+                  <label htmlFor="password">Password (Leave blank to keep current)</label>
+                  <input
+                    type="password"
+                    id="password"
+                    name="password"
+                    value={formData.password}
+                    onChange={handleInputChange}
+                    placeholder="Enter new password"
+                    className={formErrors.password ? 'error' : ''}
+                  />
+                  {formErrors.password && <span className="error-message">{formErrors.password}</span>}
+                </div>
+
+                <div className="form-group">
+                  <label htmlFor="role">Role*</label>
+                  <select
+                    id="role"
+                    name="role"
+                    value={formData.role}
+                    onChange={handleInputChange}
+                    className={formErrors.role ? 'error' : ''}
+                  >
+                    <option value="SALES_STAFF">Sales Staff</option>
+                    <option value="INVENTORY_STAFF">Inventory Staff</option>
+                  </select>
+                  {formErrors.role && <span className="error-message">{formErrors.role}</span>}
+                </div>
+
+                <div className="modal-footer">
+                  <button type="button" className="cancel-btn" onClick={handleCloseEditModal}>Cancel</button>
+                  <button type="submit" className="submit-btn" disabled={isLoading}>
+                    {isLoading ? 'Updating...' : 'Update User'}
+                  </button>
+                </div>
+              </form>
+            </div>
+          </div>
       </div>
+      )}
     </div>
   );
 };

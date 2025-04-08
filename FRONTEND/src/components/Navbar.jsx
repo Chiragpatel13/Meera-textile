@@ -10,15 +10,28 @@ const Navbar = ({ userRole }) => {
   const [isDropdownOpen, setIsDropdownOpen] = useState(false);
 
   const handleLogout = () => {
-    logout(); // Clear user state and localStorage
-    navigate('/login'); // Redirect to login page
-    setIsDropdownOpen(false); // Close dropdown after logout
+    try {
+      logout(); // Clear user state from context
+      // Remove all stored data
+      localStorage.clear();
+      sessionStorage.clear();
+      // Navigate to login page
+      navigate('/login');
+    } catch (error) {
+      console.error('Error during logout:', error);
+      // Fallback direct navigation if anything fails
+      window.location.href = '/login';
+    } finally {
+      setIsDropdownOpen(false); // Close dropdown after logout attempt
+    }
   };
 
   return (
     <nav className="navbar">
       <div className="logo">
-        <Link to="/" className="logo-text">MEERA</Link>
+        <Link to="/" className="logo-link">
+          <img src="/templates/logo.png" alt="Mira Textile Logo" className="logo-image" />
+        </Link>
       </div>
       <ul className="nav-links">
         <li><Link to="/dashboard" className="nav-link">Home</Link></li>

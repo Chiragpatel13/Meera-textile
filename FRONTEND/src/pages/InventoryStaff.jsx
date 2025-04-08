@@ -1,25 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Link } from 'react-router-dom';
-import { DataGrid } from '@mui/x-data-grid';
-import { 
-  Button, 
-  Dialog, 
-  DialogTitle, 
-  DialogContent, 
-  DialogActions,
-  TextField,
-  MenuItem,
-  FormControl,
-  InputLabel,
-  Select,
-  IconButton,
-  Typography,
-  Box,
-  FormHelperText,
-  Tooltip,
-  Switch,
-  FormControlLabel
-} from '@mui/material';
+import { Link, useNavigate } from 'react-router-dom';
 import { 
   FaBox, 
   FaShoppingCart, 
@@ -31,123 +11,213 @@ import {
   FaSignOutAlt,
   FaKey,
   FaEdit,
-  FaMinus,
-  FaPlus,
   FaTrash,
   FaSync,
-  FaCashRegister
+  FaFilter,
+  FaSearch,
+  FaPlusCircle,
+  FaDownload,
+  FaUpload,
+  FaBoxOpen,
+  FaTags,
+  FaListAlt,
+  FaRupeeSign,
+  FaCashRegister,
+  FaHistory,
+  FaCalendarAlt
 } from 'react-icons/fa';
 import { AiFillIdcard } from 'react-icons/ai';
 import '../styles/dashboard.css';
+import '../styles/inventory.css';
+import LoadingAnimation from '../components/LoadingAnimation';
 
-const API_BASE_URL = 'http://localhost:8082/api';
+// Dummy data for inventory items
+const dummyInventoryData = [
+  {
+    id: 1,
+    sku: 'FBR-CTN-001',
+    name: 'Cotton Fabric',
+    category: 'Fabric',
+    price: 350,
+    quantity: 150,
+    size: 'Standard',
+    color: 'White',
+    status: 'In Stock',
+    lastUpdated: '2023-05-10'
+  },
+  {
+    id: 2,
+    sku: 'FBR-SLK-002',
+    name: 'Silk Fabric',
+    category: 'Fabric',
+    price: 850,
+    quantity: 75,
+    size: 'Standard',
+    color: 'Red',
+    status: 'In Stock',
+    lastUpdated: '2023-05-12'
+  },
+  {
+    id: 3,
+    sku: 'FBR-PLY-003',
+    name: 'Polyester Blend',
+    category: 'Fabric',
+    price: 250,
+    quantity: 200,
+    size: 'Standard',
+    color: 'Blue',
+    status: 'In Stock',
+    lastUpdated: '2023-05-15'
+  },
+  {
+    id: 4,
+    sku: 'BTN-PLS-001',
+    name: 'Plastic Buttons',
+    category: 'Accessories',
+    price: 120,
+    quantity: 500,
+    size: 'Small',
+    color: 'Black',
+    status: 'In Stock',
+    lastUpdated: '2023-05-18'
+  },
+  {
+    id: 5,
+    sku: 'FBR-LNN-004',
+    name: 'Linen Fabric',
+    category: 'Fabric',
+    price: 450,
+    quantity: 8,
+    size: 'Standard',
+    color: 'Beige',
+    status: 'Low Stock',
+    lastUpdated: '2023-05-20'
+  },
+  {
+    id: 6,
+    sku: 'ZPR-MTL-001',
+    name: 'Metal Zippers',
+    category: 'Accessories',
+    price: 85,
+    quantity: 350,
+    size: 'Medium',
+    color: 'Silver',
+    status: 'In Stock',
+    lastUpdated: '2023-05-22'
+  },
+  {
+    id: 7,
+    sku: 'THR-CTN-001',
+    name: 'Cotton Thread',
+    category: 'Accessories',
+    price: 50,
+    quantity: 5,
+    size: 'Standard',
+    color: 'Assorted',
+    status: 'Low Stock',
+    lastUpdated: '2023-05-25'
+  },
+  {
+    id: 8,
+    sku: 'FBR-DNM-005',
+    name: 'Denim Fabric',
+    category: 'Fabric',
+    price: 550,
+    quantity: 100,
+    size: 'Standard',
+    color: 'Blue',
+    status: 'In Stock',
+    lastUpdated: '2023-05-28'
+  },
+  {
+    id: 9,
+    sku: 'BTN-WOD-002',
+    name: 'Wooden Buttons',
+    category: 'Accessories',
+    price: 180,
+    quantity: 250,
+    size: 'Medium',
+    color: 'Brown',
+    status: 'In Stock',
+    lastUpdated: '2023-05-30'
+  },
+  {
+    id: 10,
+    name: 'Velvet Fabric',
+    sku: 'FBR-VLV-006',
+    category: 'Fabric',
+    price: 750,
+    quantity: 50,
+    size: 'Standard',
+    color: 'Purple',
+    status: 'In Stock',
+    lastUpdated: '2023-06-01'
+  }
+];
+
+// Categories for filtering
+const categories = [
+  { id: 'all', name: 'All Categories' },
+  { id: 'fabric', name: 'Fabric' },
+  { id: 'accessories', name: 'Accessories' },
+  { id: 'lowstock', name: 'Low Stock Items' }
+];
 
 const InventoryManagement = () => {
+  const navigate = useNavigate();
   // State management
-  const [skus, setSkus] = useState([]);
-  const [loading, setLoading] = useState(true);
-  const [openAddEditModal, setOpenAddEditModal] = useState(false);
-  const [openAdjustModal, setOpenAdjustModal] = useState(false);
-  const [openReceiveModal, setOpenReceiveModal] = useState(false);
-  const [currentSku, setCurrentSku] = useState(null);
-  const [isEditMode, setIsEditMode] = useState(false);
+  const [inventory, setInventory] = useState(dummyInventoryData);
+  const [filteredInventory, setFilteredInventory] = useState(dummyInventoryData);
+  const [loading, setLoading] = useState(false);
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
   const [userMenuOpen, setUserMenuOpen] = useState(false);
-  const [showLowStock, setShowLowStock] = useState(false);
-  const [userData, setUserData] = useState({
+  const [searchTerm, setSearchTerm] = useState('');
+  const [activeCategory, setActiveCategory] = useState('all');
+  const [showAddModal, setShowAddModal] = useState(false);
+  const [showEditModal, setShowEditModal] = useState(false);
+  const [editingProduct, setEditingProduct] = useState(null);
+  const [newProduct, setNewProduct] = useState({
+    sku: '',
     name: '',
-    email: ''
-  });
-  
-  // Form states
-  const [skuForm, setSkuForm] = useState({
-    sku_code: '',
-    fabric_type: '',
-    color: '',
-    price_per_meter: ''
-  });
-  
-  const [adjustmentForm, setAdjustmentForm] = useState({
-    adjustment_type: 'INCREASE',
+    category: 'Fabric',
+    price: '',
     quantity: '',
-    reason: ''
+    size: 'Standard',
+    color: '',
+    status: 'In Stock',
+    lastUpdated: new Date().toISOString().slice(0, 10)
+  });
+  const [userData] = useState({
+    name: 'Inventory Manager',
+    email: 'inventory@miratextile.com'
   });
   
-  const [receiptForm, setReceiptForm] = useState({
-    quantity_received: '',
-    supplier_info: ''
-  });
-  
-  // Validation states
-  const [skuErrors, setSkuErrors] = useState({});
-  const [adjustmentErrors, setAdjustmentErrors] = useState({});
-  const [receiptErrors, setReceiptErrors] = useState({});
-
-  // Fetch SKUs on component mount
+  // Filter inventory based on search and category
   useEffect(() => {
-    fetchSkus();
-    fetchUserData();
-  }, []);
-
-  // Filter SKUs if showing low stock only
-  const filteredSkus = showLowStock 
-    ? skus.filter(sku => sku.stock < 20)
-    : skus;
-  
-  // Fetch SKUs from API
-  const fetchSkus = async () => {
-    setLoading(true);
-    try {
-      // In a real app, this would be an actual API call
-      // const response = await fetch('/api/skus');
-      // const data = await response.json();
-      
-      // Mock data for demonstration
-      const mockData = [
-        { id: 1, sku_code: 'COT-RED-001', fabric_type: 'Cotton', color: 'Red', price_per_meter: 15.50, stock: 95.5 },
-        { id: 2, sku_code: 'SLK-BLU-001', fabric_type: 'Silk', color: 'Blue', price_per_meter: 24.75, stock: 45.2 },
-        { id: 3, sku_code: 'PLY-BLK-001', fabric_type: 'Polyester', color: 'Black', price_per_meter: 8.99, stock: 120.0 },
-        { id: 4, sku_code: 'LIN-WHT-001', fabric_type: 'Linen', color: 'White', price_per_meter: 18.25, stock: 15.5 },
-        { id: 5, sku_code: 'DNM-BLU-001', fabric_type: 'Denim', color: 'Blue', price_per_meter: 12.00, stock: 78.3 }
-      ];
-      
-      setSkus(mockData);
-    } catch (error) {
-      console.error('Error fetching SKUs:', error);
-    } finally {
-      setLoading(false);
+    let result = inventory;
+    
+    // Filter by search term
+    if (searchTerm) {
+      result = result.filter(item => 
+        item.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        item.sku.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        item.category.toLowerCase().includes(searchTerm.toLowerCase())
+      );
     }
-  };
-
-  const fetchUserData = async () => {
-    try {
-      const token = localStorage.getItem('token');
-      if (!token) {
-        console.error('No authentication token found');
-        return;
+    
+    // Filter by category
+    if (activeCategory !== 'all') {
+      if (activeCategory === 'lowstock') {
+        result = result.filter(item => item.quantity < 10);
+      } else {
+        result = result.filter(item => 
+          item.category.toLowerCase() === activeCategory.toLowerCase()
+        );
       }
-
-      const response = await fetch(`${API_BASE_URL}/admin/users/current`, {
-        headers: {
-          'Authorization': `Bearer ${token}`
-        }
-      });
-
-      if (!response.ok) {
-        throw new Error('Failed to fetch user data');
-      }
-
-      const data = await response.json();
-      if (data.success && data.data) {
-        setUserData({
-          name: data.data.fullName || 'Unknown User',
-          email: data.data.email || 'No email'
-        });
-      }
-    } catch (error) {
-      console.error('Error fetching user data:', error);
     }
-  };
+    
+    setFilteredInventory(result);
+  }, [searchTerm, activeCategory, inventory]);
 
   // Toggle sidebar
   const toggleSidebar = () => {
@@ -182,399 +252,307 @@ const InventoryManagement = () => {
     if (window.confirm("Are you sure you want to logout?")) {
       localStorage.clear();
       sessionStorage.clear();
-      window.location.href = '/Login';
+      navigate('/Login');
     }
   };
 
   // Reset password navigation
   const handleResetPassword = () => {
-    window.location.href = '/ResetPassword';
+    navigate('/ResetPassword');
   };
 
   // User profile navigation
   const handleUser = () => {
-    window.location.href = '/Profile';
+    navigate('/Profile');
   };
 
-  // Handle Add/Edit modal
+  // Category selection handler
+  const handleCategoryChange = (categoryId) => {
+    setActiveCategory(categoryId);
+  };
+
+  // Search handler
+  const handleSearch = (e) => {
+    setSearchTerm(e.target.value);
+  };
+
+  // Format currency
+  const formatCurrency = (amount) => {
+    return new Intl.NumberFormat('en-IN', {
+      style: 'currency',
+      currency: 'INR',
+      minimumFractionDigits: 2
+    }).format(amount);
+  };
+
+  // Handle opening add product modal
   const handleOpenAddModal = () => {
-    setIsEditMode(false);
-    setSkuForm({
-      sku_code: '',
-      fabric_type: '',
-      color: '',
-      price_per_meter: ''
-    });
-    setSkuErrors({});
-    setOpenAddEditModal(true);
+    setShowAddModal(true);
   };
 
-  const handleOpenEditModal = (sku) => {
-    setIsEditMode(true);
-    setCurrentSku(sku);
-    setSkuForm({
-      sku_code: sku.sku_code,
-      fabric_type: sku.fabric_type,
-      color: sku.color,
-      price_per_meter: sku.price_per_meter.toString()
-    });
-    setSkuErrors({});
-    setOpenAddEditModal(true);
-  };
-
-  // Handle Adjust modal
-  const handleOpenAdjustModal = (sku) => {
-    setCurrentSku(sku);
-    setAdjustmentForm({
-      adjustment_type: 'INCREASE',
+  // Handle closing add product modal
+  const handleCloseAddModal = () => {
+    setShowAddModal(false);
+    // Reset form
+    setNewProduct({
+      sku: '',
+      name: '',
+      category: 'Fabric',
+      price: '',
       quantity: '',
-      reason: ''
+      size: 'Standard',
+      color: '',
+      status: 'In Stock',
+      lastUpdated: new Date().toISOString().slice(0, 10)
     });
-    setAdjustmentErrors({});
-    setOpenAdjustModal(true);
   };
 
-  // Handle Receive modal
-  const handleOpenReceiveModal = (sku) => {
-    setCurrentSku(sku);
-    setReceiptForm({
-      quantity_received: '',
-      supplier_info: ''
-    });
-    setReceiptErrors({});
-    setOpenReceiveModal(true);
-  };
-
-  // Close modals
-  const handleCloseAddEditModal = () => {
-    setOpenAddEditModal(false);
-  };
-
-  const handleCloseAdjustModal = () => {
-    setOpenAdjustModal(false);
-  };
-
-  const handleCloseReceiveModal = () => {
-    setOpenReceiveModal(false);
-  };
-
-  // Form change handlers
-  const handleSkuFormChange = (e) => {
+  // Handle form input changes
+  const handleInputChange = (e) => {
     const { name, value } = e.target;
-    setSkuForm({
-      ...skuForm,
+    setNewProduct({
+      ...newProduct,
       [name]: value
     });
-    
-    // Clear error when field is edited
-    if (skuErrors[name]) {
-      setSkuErrors({
-        ...skuErrors,
-        [name]: ''
-      });
-    }
   };
 
-  const handleAdjustmentFormChange = (e) => {
-    const { name, value } = e.target;
-    setAdjustmentForm({
-      ...adjustmentForm,
-      [name]: value
+  // Handle form submission
+  const handleAddProduct = (e) => {
+    e.preventDefault();
+    
+    // Validate form
+    if (!newProduct.sku || !newProduct.name || !newProduct.price || !newProduct.quantity) {
+      alert('Please fill all required fields');
+      return;
+    }
+
+    // Create new product with ID
+    const product = {
+      ...newProduct,
+      id: inventory.length + 1,
+      price: parseFloat(newProduct.price),
+      quantity: parseInt(newProduct.quantity),
+      status: parseInt(newProduct.quantity) < 10 ? 'Low Stock' : 'In Stock'
+    };
+
+    // Add to inventory
+    setInventory([...inventory, product]);
+    
+    // Close modal
+    handleCloseAddModal();
+    
+    // Show success message
+    alert('Product added successfully!');
+  };
+
+  // Export inventory data to CSV
+  const handleExportCSV = () => {
+    // Create CSV content
+    const headers = ['SKU', 'Name', 'Category', 'Price', 'Quantity', 'Size', 'Color', 'Status', 'Last Updated'];
+    
+    let csvContent = headers.join(',') + '\n';
+    
+    // Add data rows
+    filteredInventory.forEach(item => {
+      const row = [
+        item.sku,
+        `"${item.name}"`, // Quote product name to handle commas in names
+        item.category,
+        item.price,
+        item.quantity,
+        item.size,
+        item.color,
+        item.status,
+        item.lastUpdated
+      ];
+      csvContent += row.join(',') + '\n';
     });
     
-    // Clear error when field is edited
-    if (adjustmentErrors[name]) {
-      setAdjustmentErrors({
-        ...adjustmentErrors,
-        [name]: ''
-      });
-    }
+    // Create a blob and download link
+    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    
+    // Create temporary link and trigger download
+    const link = document.createElement('a');
+    const timestamp = new Date().toISOString().split('T')[0];
+    link.href = url;
+    link.setAttribute('download', `inventory_export_${timestamp}.csv`);
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
   };
 
-  const handleReceiptFormChange = (e) => {
-    const { name, value } = e.target;
-    setReceiptForm({
-      ...receiptForm,
-      [name]: value
-    });
+  // Import inventory data from CSV
+  const handleImportCSV = () => {
+    // Create file input element
+    const fileInput = document.createElement('input');
+    fileInput.type = 'file';
+    fileInput.accept = '.csv';
     
-    // Clear error when field is edited
-    if (receiptErrors[name]) {
-      setReceiptErrors({
-        ...receiptErrors,
-        [name]: ''
-      });
-    }
-  };
-
-  // Validate SKU form
-  const validateSkuForm = () => {
-    const errors = {};
-    if (!skuForm.sku_code) errors.sku_code = 'SKU code is required';
-    if (!skuForm.fabric_type) errors.fabric_type = 'Fabric type is required';
-    if (!skuForm.color) errors.color = 'Color is required';
-    if (!skuForm.price_per_meter) {
-      errors.price_per_meter = 'Price per meter is required';
-    } else if (isNaN(parseFloat(skuForm.price_per_meter)) || parseFloat(skuForm.price_per_meter) <= 0) {
-      errors.price_per_meter = 'Price must be a positive number';
-    }
-    
-    setSkuErrors(errors);
-    return Object.keys(errors).length === 0;
-  };
-
-  // Validate adjustment form
-  const validateAdjustmentForm = () => {
-    const errors = {};
-    if (!adjustmentForm.quantity) {
-      errors.quantity = 'Quantity is required';
-    } else if (isNaN(parseFloat(adjustmentForm.quantity)) || parseFloat(adjustmentForm.quantity) <= 0) {
-      errors.quantity = 'Quantity must be a positive number';
-    }
-    
-    if (!adjustmentForm.reason) errors.reason = 'Reason is required';
-    
-    setAdjustmentErrors(errors);
-    return Object.keys(errors).length === 0;
-  };
-
-  // Validate receipt form
-  const validateReceiptForm = () => {
-    const errors = {};
-    if (!receiptForm.quantity_received) {
-      errors.quantity_received = 'Quantity is required';
-    } else if (isNaN(parseFloat(receiptForm.quantity_received)) || parseFloat(receiptForm.quantity_received) <= 0) {
-      errors.quantity_received = 'Quantity must be a positive number';
-    }
-    
-    setReceiptErrors(errors);
-    return Object.keys(errors).length === 0;
-  };
-
-  // Submit handlers
-  const handleSubmitSku = async () => {
-    if (!validateSkuForm()) return;
-    
-    try {
-      if (isEditMode) {
-        // Update existing SKU
-        // In a real app, this would be an API call:
-        // await fetch(`/api/skus/${currentSku.id}`, {
-        //   method: 'PUT',
-        //   headers: { 'Content-Type': 'application/json' },
-        //   body: JSON.stringify(skuForm)
-        // });
-        
-        // For demo, update locally
-        const updatedSkus = skus.map(sku => 
-          sku.id === currentSku.id ? 
-            { 
-              ...sku, 
-              sku_code: skuForm.sku_code,
-              fabric_type: skuForm.fabric_type,
-              color: skuForm.color,
-              price_per_meter: parseFloat(skuForm.price_per_meter)
-            } : sku
-        );
-        setSkus(updatedSkus);
-      } else {
-        // Add new SKU
-        // In a real app, this would be an API call:
-        // const response = await fetch('/api/skus', {
-        //   method: 'POST',
-        //   headers: { 'Content-Type': 'application/json' },
-        //   body: JSON.stringify(skuForm)
-        // });
-        // const data = await response.json();
-        
-        // For demo, add locally
-        const newSku = {
-          id: skus.length + 1,
-          sku_code: skuForm.sku_code,
-          fabric_type: skuForm.fabric_type,
-          color: skuForm.color,
-          price_per_meter: parseFloat(skuForm.price_per_meter),
-          stock: 0
-        };
-        
-        setSkus([...skus, newSku]);
-      }
+    // Handle file selection
+    fileInput.onchange = (e) => {
+      const file = e.target.files[0];
+      if (!file) return;
       
-      handleCloseAddEditModal();
-    } catch (error) {
-      console.error('Error saving SKU:', error);
-    }
-  };
-
-  const handleSubmitAdjustment = async () => {
-    if (!validateAdjustmentForm()) return;
-    
-    try {
-      // In a real app, this would be an API call:
-      // await fetch('/api/inventory/adjustments', {
-      //   method: 'POST',
-      //   headers: { 'Content-Type': 'application/json' },
-      //   body: JSON.stringify({
-      //     sku_id: currentSku.id,
-      //     ...adjustmentForm,
-      //     quantity: parseFloat(adjustmentForm.quantity)
-      //   })
-      // });
-      
-      // For demo, update locally
-      const updatedSkus = skus.map(sku => {
-        if (sku.id === currentSku.id) {
-          const adjustmentValue = parseFloat(adjustmentForm.quantity);
-          let newStock = sku.stock;
+      const reader = new FileReader();
+      reader.onload = (event) => {
+        try {
+          const csvData = event.target.result;
+          const lines = csvData.split('\n');
           
-          if (adjustmentForm.adjustment_type === 'INCREASE') {
-            newStock += adjustmentValue;
-          } else {
-            newStock = Math.max(0, newStock - adjustmentValue);
+          // Get headers and verify format
+          const headers = lines[0].split(',');
+          if (headers.length < 8) {
+            alert('Invalid CSV format. Please use the correct template.');
+            return;
           }
           
-          return { ...sku, stock: newStock };
-        }
-        return sku;
-      });
-      
-      setSkus(updatedSkus);
-      handleCloseAdjustModal();
+          // Parse data rows
+          const newInventory = [];
+          let skippedRows = 0;
+          
+          for (let i = 1; i < lines.length; i++) {
+            if (!lines[i].trim()) continue; // Skip empty lines
+            
+            const values = lines[i].split(',');
+            if (values.length < 8) {
+              skippedRows++;
+              continue;
+            }
+            
+            // Extract product name - handle quoted values that might contain commas
+            let productName = values[1];
+            if (productName.startsWith('"') && !productName.endsWith('"')) {
+              // Find the closing quote
+              let nameIndex = 2;
+              while (nameIndex < values.length && !values[nameIndex - 1].endsWith('"')) {
+                productName += ',' + values[nameIndex];
+                nameIndex++;
+              }
+              // Adjust the remaining values
+              values.splice(1, nameIndex - 1, productName);
+            }
+            
+            // Clean up quotes from product name
+            productName = productName.replace(/^"(.+)"$/, '$1');
+            
+            // Create product object
+            const product = {
+              id: inventory.length + newInventory.length + 1,
+              sku: values[0],
+              name: productName,
+              category: values[2],
+              price: parseFloat(values[3]),
+              quantity: parseInt(values[4]),
+              size: values[5],
+              color: values[6],
+              status: parseInt(values[4]) < 10 ? 'Low Stock' : 'In Stock',
+              lastUpdated: values[8] || new Date().toISOString().split('T')[0]
+            };
+            
+            // Validate required fields
+            if (!product.sku || !product.name || isNaN(product.price) || isNaN(product.quantity)) {
+              skippedRows++;
+              continue;
+            }
+            
+            newInventory.push(product);
+          }
+          
+          // Update inventory
+          if (newInventory.length > 0) {
+            setInventory([...inventory, ...newInventory]);
+            alert(`Successfully imported ${newInventory.length} products.${skippedRows > 0 ? ` Skipped ${skippedRows} invalid rows.` : ''}`);
+          } else {
+            alert('No valid products found in the CSV file.');
+          }
+          
     } catch (error) {
-      console.error('Error submitting adjustment:', error);
-    }
-  };
-
-  const handleSubmitReceipt = async () => {
-    if (!validateReceiptForm()) return;
+          console.error('Error parsing CSV:', error);
+          alert('Error parsing CSV file. Please check the format and try again.');
+        }
+      };
+      
+      reader.readAsText(file);
+    };
     
-    try {
-      // In a real app, this would be an API call:
-      // await fetch('/api/inventory/receipts', {
-      //   method: 'POST',
-      //   headers: { 'Content-Type': 'application/json' },
-      //   body: JSON.stringify({
-      //     sku_id: currentSku.id,
-      //     ...receiptForm,
-      //     quantity_received: parseFloat(receiptForm.quantity_received)
-      //   })
-      // });
-      
-      // For demo, update locally
-      const updatedSkus = skus.map(sku => {
-        if (sku.id === currentSku.id) {
-          return {
-            ...sku,
-            stock: sku.stock + parseFloat(receiptForm.quantity_received)
-          };
-        }
-        return sku;
+    // Trigger file selection
+    fileInput.click();
+  };
+
+  // Handle edit product
+  const handleEditProduct = (productId) => {
+    const product = inventory.find(item => item.id === productId);
+    if (product) {
+      setEditingProduct({
+        ...product,
+        price: product.price.toString(),
+        quantity: product.quantity.toString()
       });
-      
-      setSkus(updatedSkus);
-      handleCloseReceiveModal();
-    } catch (error) {
-      console.error('Error submitting receipt:', error);
+      setShowEditModal(true);
     }
   };
 
-  // Handle delete SKU
-  const handleDeleteSku = async (sku) => {
-    if (window.confirm(`Are you sure you want to delete ${sku.sku_code}?`)) {
-      try {
-        // In a real app, this would be an API call:
-        // await fetch(`/api/skus/${sku.id}`, {
-        //   method: 'DELETE'
-        // });
-        
-        // For demo, update locally
-        setSkus(skus.filter(s => s.id !== sku.id));
-      } catch (error) {
-        console.error('Error deleting SKU:', error);
-      }
+  // Handle delete product
+  const handleDeleteProduct = (productId) => {
+    if (window.confirm('Are you sure you want to delete this product?')) {
+      setInventory(inventory.filter(item => item.id !== productId));
+      alert('Product deleted successfully!');
     }
   };
 
-  // DataGrid columns
-  const columns = [
-    { field: 'sku_code', headerName: 'SKU Code', flex: 1, minWidth: 120 },
-    { field: 'fabric_type', headerName: 'Fabric Type', flex: 1, minWidth: 120 },
-    { field: 'color', headerName: 'Color', flex: 1, minWidth: 100 },
-    { 
-      field: 'price_per_meter', 
-      headerName: 'Price/Meter', 
-      flex: 1, 
-      minWidth: 120,
-      renderCell: (params) => `$${params.value.toFixed(2)}`
-    },
-    { 
-      field: 'stock', 
-      headerName: 'Stock', 
-      flex: 1, 
-      minWidth: 100,
-      renderCell: (params) => {
-        return (
-          <Box sx={{ color: params.value < 20 ? '#f44336' : 'inherit' }}>
-            {params.value.toFixed(1)}
-          </Box>
-        );
-      }
-    },
-    {
-      field: 'actions',
-      headerName: 'Actions',
-      flex: 1,
-      minWidth: 200,
-      sortable: false,
-      renderCell: (params) => (
-        <Box sx={{ display: 'flex', justifyContent: 'center', gap: 1 }}>
-          <Tooltip title="Edit">
-            <IconButton 
-              onClick={() => handleOpenEditModal(params.row)}
-              size="small"
-              className="edit-icon"
-            >
-              <FaEdit />
-            </IconButton>
-          </Tooltip>
-          <Tooltip title="Adjust Stock">
-            <IconButton 
-              onClick={() => handleOpenAdjustModal(params.row)}
-              size="small"
-              className="edit-icon"
-            >
-              <FaMinus />
-            </IconButton>
-          </Tooltip>
-          <Tooltip title="Receive Stock">
-            <IconButton 
-              onClick={() => handleOpenReceiveModal(params.row)}
-              size="small"
-              className="edit-icon"
-            >
-              <FaPlus />
-            </IconButton>
-          </Tooltip>
-          <Tooltip title="Delete">
-            <IconButton 
-              onClick={() => handleDeleteSku(params.row)}
-              size="small"
-              className="delete-icon"
-            >
-              <FaTrash />
-            </IconButton>
-          </Tooltip>
-        </Box>
-      )
+  // Handle closing edit modal
+  const handleCloseEditModal = () => {
+    setShowEditModal(false);
+    setEditingProduct(null);
+  };
+
+  // Handle form input changes for editing
+  const handleEditInputChange = (e) => {
+    const { name, value } = e.target;
+    setEditingProduct({
+      ...editingProduct,
+      [name]: value
+    });
+  };
+
+  // Handle form submission for editing
+  const handleSaveProduct = (e) => {
+    e.preventDefault();
+    
+    // Validate form
+    if (!editingProduct.sku || !editingProduct.name || !editingProduct.price || !editingProduct.quantity) {
+      alert('Please fill all required fields');
+      return;
     }
-  ];
+
+    // Update product
+    const updatedProduct = {
+      ...editingProduct,
+      price: parseFloat(editingProduct.price),
+      quantity: parseInt(editingProduct.quantity),
+      status: parseInt(editingProduct.quantity) < 10 ? 'Low Stock' : 'In Stock',
+      lastUpdated: new Date().toISOString().slice(0, 10)
+    };
+
+    // Update inventory
+    setInventory(inventory.map(item => 
+      item.id === updatedProduct.id ? updatedProduct : item
+    ));
+    
+    // Close modal
+    handleCloseEditModal();
+    
+    // Show success message
+    alert('Product updated successfully!');
+  };
 
   return (
     <div className="admin-dashboard">
       {/* Sidebar */}
       <div className={`sidebar ${sidebarCollapsed ? 'collapsed' : ''}`}>
         <div className="sidebar-header">
-          <h3>Store Manager</h3>
+          <h3>Mira Textile</h3>
           <button className="collapse-btn" onClick={toggleSidebar}>
             <FaBars />
           </button>
@@ -582,23 +560,25 @@ const InventoryManagement = () => {
         <ul className="sidebar-menu">
           <li><Link to="/dashboard"><FaChartBar /> <span>Dashboard</span></Link></li>
           <li className="active"><Link to="/inventory/manage"><FaBox /> <span>Inventory</span></Link></li>
-          <li><Link to="/pos"><FaShoppingCart /> <span>Orders</span></Link></li>
+          <li><Link to="/pos"><FaCashRegister /> <span>POS</span></Link></li>
           <li><Link to="/CustomerManagement"><FaUsers /> <span>Customers</span></Link></li>
           <li><Link to="/Reportingpage"><FaFolder /> <span>Reports</span></Link></li>
         </ul>
       </div>
 
       {/* Main Content */}
-      <div className="main-content">
+      <div className="main-content" style={{ marginLeft: sidebarCollapsed ? '70px' : '240px' }}>
         {/* Top Bar */}
         <div className="top-bar">
           <div className="page-title">
             <h1>Inventory Management</h1>
+            <p className="subtitle">Manage your products and stock levels</p>
           </div>
           <div className="top-bar-actions">
-            <button className="refresh-btn" onClick={fetchSkus}>
-              <FaSync />
-            </button>
+            <div className="date-display">
+              <FaCalendarAlt />
+              <span>{new Date().toLocaleDateString('en-US', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })}</span>
+            </div>
             <div className="user-menu-container">
               <button className="user-menu-btn" onClick={toggleUserMenu}>
                 <FaUserCircle />
@@ -611,16 +591,17 @@ const InventoryManagement = () => {
                       <FaUserCircle />
                     </div>
                     <div className="user-details">
-                      <h3>{userData.name}</h3>
-                      <p>{userData.email}</p>
+                      <h3>{userData.name || 'Demo User'}</h3>
+                      <p>{userData.email || 'demo@miratextile.com'}</p>
+                      <span className="user-role">Admin</span>
                     </div>
                   </div>
                   <div className="user-actions">
+                    <button className="view-profile-btn" onClick={handleUser}>
+                      <FaUserCircle /> View Profile
+                    </button>
                     <button className="reset-password-btn" onClick={handleResetPassword}>
                       <FaKey /> Reset Password
-                    </button>
-                    <button className="reset-password-btn" onClick={handleUser}>
-                      <AiFillIdcard /> User Profile
                     </button>
                     <button className="logout-btn" onClick={handleLogout}>
                       <FaSignOutAlt /> Logout
@@ -632,281 +613,407 @@ const InventoryManagement = () => {
           </div>
         </div>
 
-        {/* Inventory Management Content */}
-        <div className="dashboard-content">
-          <div className="card">
-            <div className="card-header" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-              <h2>SKU Management</h2>
-              <div style={{ display: 'flex', alignItems: 'center', gap: '15px' }}>
-                <FormControlLabel
-                  control={
-                    <Switch 
-                      checked={showLowStock}
-                      onChange={(e) => setShowLowStock(e.target.checked)}
-                      color="primary"
-                    />
-                  }
-                  label="Show Low Stock Only"
+        {/* Inventory Content */}
+        <div className="inventory-content">
+          {/* Inventory Actions */}
+          <div className="inventory-actions">
+            <div className="search-container">
+              <div className="search-input-wrapper">
+                <FaSearch className="search-icon" />
+                <input 
+                  type="text" 
+                  placeholder="Search inventory..." 
+                  value={searchTerm}
+                  onChange={handleSearch}
+                  className="search-input"
                 />
-                <Button 
-                  variant="contained" 
-                  color="primary" 
-                  onClick={handleOpenAddModal}
-                  style={{ 
-                    backgroundColor: '#3B3F51',
-                    color: 'white',
-                    textTransform: 'none',
-                    fontWeight: '500',
-                    padding: '8px 16px',
-                    borderRadius: '4px'
-                  }}
-                >
-                  <FaPlus style={{ marginRight: '8px' }} /> Add SKU
-                </Button>
               </div>
             </div>
-            <div className="card-body">
-              <div style={{ height: 500, width: '100%' }}>
-                <DataGrid
-                  rows={filteredSkus}
-                  columns={columns}
-                  pageSize={10}
-                  rowsPerPageOptions={[5, 10, 25]}
-                  disableSelectionOnClick
-                  loading={loading}
-                  getRowClassName={(params) => 
-                    params.row.stock < 20 ? 'low-stock-row' : ''
-                  }
-                  sx={{
-                    '& .low-stock-row': {
-                      backgroundColor: 'rgba(244, 67, 54, 0.08)'
-                    },
-                    '& .MuiDataGrid-columnHeaderTitle': {
-                      fontWeight: 'bold'
-                    }
-                  }}
-                />
+            <div className="action-buttons">
+              <button className="action-button primary" onClick={handleOpenAddModal}>
+                <FaPlusCircle /> Add Product
+              </button>
+              <button className="action-button secondary" onClick={handleImportCSV}>
+                <FaUpload /> Import
+              </button>
+              <button className="action-button tertiary" onClick={handleExportCSV}>
+                <FaDownload /> Export
+              </button>
+            </div>
+          </div>
+
+          {/* Category Filter */}
+          <div className="category-filter">
+            {categories.map(category => (
+              <button 
+                key={category.id}
+                className={`category-btn ${activeCategory === category.id ? 'active' : ''}`}
+                onClick={() => handleCategoryChange(category.id)}
+              >
+                {category.name}
+              </button>
+            ))}
+              </div>
+
+          {/* Inventory Table */}
+          {loading ? (
+            <LoadingAnimation size="large" text="Loading inventory data..." />
+          ) : (
+            <div className="inventory-table-container">
+              <table className="inventory-table">
+                <thead>
+                  <tr>
+                    <th>SKU</th>
+                    <th>Product Name</th>
+                    <th>Category</th>
+                    <th>Price</th>
+                    <th>Quantity</th>
+                    <th>Status</th>
+                    <th>Last Updated</th>
+                    <th>Actions</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {filteredInventory.length === 0 ? (
+                    <tr>
+                      <td colSpan="8" className="no-data">No products found</td>
+                    </tr>
+                  ) : (
+                    filteredInventory.map((product) => (
+                      <tr key={product.id} className={product.quantity < 10 ? 'low-stock' : ''}>
+                        <td>{product.sku}</td>
+                        <td>
+                          <div className="product-cell">
+                            <span className="product-color" style={{ backgroundColor: product.color.toLowerCase() }}></span>
+                            <span>{product.name}</span>
+              </div>
+                        </td>
+                        <td>{product.category}</td>
+                        <td>{formatCurrency(product.price)}</td>
+                        <td>
+                          <div className="quantity-cell">
+                            <span className={`quantity-indicator ${product.quantity < 10 ? 'low' : 'normal'}`}></span>
+                            {product.quantity}
+            </div>
+                        </td>
+                        <td>
+                          <span className={`status-badge ${product.quantity < 10 ? 'low-stock' : 'in-stock'}`}>
+                            {product.quantity < 10 ? 'Low Stock' : 'In Stock'}
+                          </span>
+                        </td>
+                        <td>{product.lastUpdated}</td>
+                        <td>
+                          <div className="action-cell">
+                            <button 
+                              className="icon-button edit"
+                              onClick={() => handleEditProduct(product.id)}
+                              title="Edit Product"
+                            >
+                              <FaEdit />
+                            </button>
+                            <button 
+                              className="icon-button delete"
+                              onClick={() => handleDeleteProduct(product.id)}
+                              title="Delete Product"
+                            >
+                              <FaTrash />
+                            </button>
+          </div>
+                        </td>
+                      </tr>
+                    ))
+                  )}
+                </tbody>
+              </table>
+            </div>
+          )}
+          
+          {/* Inventory Stats */}
+          <div className="inventory-stats">
+            <div className="stat-card">
+              <div className="stat-icon products">
+                <FaBoxOpen />
+              </div>
+              <div className="stat-content">
+                <h3>Total Products</h3>
+                <p className="stat-value">{inventory.length}</p>
+        </div>
+      </div>
+
+            <div className="stat-card">
+              <div className="stat-icon categories">
+                <FaTags />
+              </div>
+              <div className="stat-content">
+                <h3>Categories</h3>
+                <p className="stat-value">2</p>
+              </div>
+            </div>
+            
+            <div className="stat-card">
+              <div className="stat-icon low-stock">
+                <FaListAlt />
+              </div>
+              <div className="stat-content">
+                <h3>Low Stock Items</h3>
+                <p className="stat-value">{inventory.filter(item => item.quantity < 10).length}</p>
+              </div>
+            </div>
+            
+            <div className="stat-card">
+              <div className="stat-icon total-value">
+                <FaRupeeSign />
+              </div>
+              <div className="stat-content">
+                <h3>Inventory Value</h3>
+                <p className="stat-value">
+                  {formatCurrency(
+                    inventory.reduce((total, item) => total + (item.price * item.quantity), 0)
+                  )}
+                </p>
               </div>
             </div>
           </div>
         </div>
       </div>
 
-      {/* Add/Edit SKU Modal */}
-      <Dialog 
-        open={openAddEditModal} 
-        onClose={handleCloseAddEditModal}
-        maxWidth="sm"
-        fullWidth
-      >
-        <DialogTitle className="dialog-title">
-          {isEditMode ? 'Edit SKU' : 'Add New SKU'}
-        </DialogTitle>
-        <DialogContent className="dialog-content">
-          <TextField
-            margin="dense"
-            name="sku_code"
-            label="SKU Code"
+      {/* Add Product Modal */}
+      {showAddModal && (
+        <div className="modal-overlay">
+          <div className="modal-content">
+            <div className="modal-header">
+              <h2>Add New Product</h2>
+              <button className="modal-close" onClick={handleCloseAddModal}>&times;</button>
+            </div>
+            <form onSubmit={handleAddProduct} className="add-product-form">
+              <div className="form-row">
+                <div className="form-group">
+                  <label htmlFor="sku">SKU*</label>
+                  <input
             type="text"
-            fullWidth
-            value={skuForm.sku_code}
-            onChange={handleSkuFormChange}
-            placeholder="e.g., COT-BLU-002"
-            error={!!skuErrors.sku_code}
-            helperText={skuErrors.sku_code}
-            autoFocus
-            InputLabelProps={{ shrink: true }}
-          />
-          <TextField
-            margin="dense"
-            name="fabric_type"
-            label="Fabric Type"
+                    id="sku"
+                    name="sku"
+                    value={newProduct.sku}
+                    onChange={handleInputChange}
+                    placeholder="e.g. FBR-CTN-001"
+                    required
+                  />
+                </div>
+                <div className="form-group">
+                  <label htmlFor="name">Product Name*</label>
+                  <input
             type="text"
-            fullWidth
-            value={skuForm.fabric_type}
-            onChange={handleSkuFormChange}
-            placeholder="e.g., Cotton"
-            error={!!skuErrors.fabric_type}
-            helperText={skuErrors.fabric_type}
-            InputLabelProps={{ shrink: true }}
-          />
-          <TextField
-            margin="dense"
-            name="color"
-            label="Color"
-            type="text"
-            fullWidth
-            value={skuForm.color}
-            onChange={handleSkuFormChange}
-            placeholder="e.g., Blue"
-            error={!!skuErrors.color}
-            helperText={skuErrors.color}
-            InputLabelProps={{ shrink: true }}
-          />
-          <TextField
-            margin="dense"
-            name="price_per_meter"
-            label="Price per Meter"
+                    id="name"
+                    name="name"
+                    value={newProduct.name}
+                    onChange={handleInputChange}
+                    placeholder="e.g. Cotton Fabric"
+                    required
+                  />
+                </div>
+              </div>
+              
+              <div className="form-row">
+                <div className="form-group">
+                  <label htmlFor="category">Category*</label>
+                  <select
+                    id="category"
+                    name="category"
+                    value={newProduct.category}
+                    onChange={handleInputChange}
+                    required
+                  >
+                    <option value="Fabric">Fabric</option>
+                    <option value="Accessories">Accessories</option>
+                  </select>
+                </div>
+                <div className="form-group">
+                  <label htmlFor="size">Size</label>
+                  <select
+                    id="size"
+                    name="size"
+                    value={newProduct.size}
+                    onChange={handleInputChange}
+                  >
+                    <option value="Standard">Standard</option>
+                    <option value="Small">Small</option>
+                    <option value="Medium">Medium</option>
+                    <option value="Large">Large</option>
+                  </select>
+                </div>
+              </div>
+              
+              <div className="form-row">
+                <div className="form-group">
+                  <label htmlFor="price">Price (₹)*</label>
+                  <input
             type="number"
-            fullWidth
-            value={skuForm.price_per_meter}
-            onChange={handleSkuFormChange}
-            placeholder="e.g., 12.75"
-            error={!!skuErrors.price_per_meter}
-            helperText={skuErrors.price_per_meter}
-            InputLabelProps={{ shrink: true }}
-            InputProps={{ startAdornment: '$' }}
-          />
-        </DialogContent>
-        <DialogActions className="dialog-actions">
-          <Button onClick={handleCloseAddEditModal} color="primary">
-            Cancel
-          </Button>
-          <Button 
-            onClick={handleSubmitSku} 
-            color="primary"
-            variant="contained"
-            style={{ backgroundColor: '#3B3F51' }}
-          >
-            {isEditMode ? 'Update' : 'Add'}
-          </Button>
-        </DialogActions>
-      </Dialog>
-
-      {/* Adjustment Modal */}
-      <Dialog 
-        open={openAdjustModal} 
-        onClose={handleCloseAdjustModal}
-        maxWidth="sm"
-        fullWidth
-      >
-        <DialogTitle className="dialog-title">
-          Adjust Stock: {currentSku?.sku_code}
-        </DialogTitle>
-        <DialogContent className="dialog-content">
-          <Typography variant="subtitle1" sx={{ mb: 2 }}>
-            Current Stock: {currentSku?.stock.toFixed(1)}
-          </Typography>
-          
-          <FormControl fullWidth margin="dense">
-            <InputLabel>Adjustment Type</InputLabel>
-            <Select
-              name="adjustment_type"
-              value={adjustmentForm.adjustment_type}
-              onChange={handleAdjustmentFormChange}
-              label="Adjustment Type"
-            >
-              <MenuItem value="INCREASE">Increase Stock</MenuItem>
-              <MenuItem value="DECREASE">Decrease Stock</MenuItem>
-            </Select>
-          </FormControl>
-          
-          <TextField
-            margin="dense"
-            name="quantity"
-            label="Quantity"
-            type="number"
-            fullWidth
-            value={adjustmentForm.quantity}
-            onChange={handleAdjustmentFormChange}
-            placeholder="e.g., 10"
-            error={!!adjustmentErrors.quantity}
-            helperText={adjustmentErrors.quantity}
-            InputLabelProps={{ shrink: true }}
-          />
-          
-          <TextField
-            margin="dense"
-            name="reason"
-            label="Reason"
+                    id="price"
+                    name="price"
+                    value={newProduct.price}
+                    onChange={handleInputChange}
+                    placeholder="0.00"
+                    min="0"
+                    step="0.01"
+                    required
+                  />
+                </div>
+                <div className="form-group">
+                  <label htmlFor="quantity">Quantity*</label>
+                  <input
+                    type="number"
+                    id="quantity"
+                    name="quantity"
+                    value={newProduct.quantity}
+                    onChange={handleInputChange}
+                    placeholder="0"
+                    min="0"
+                    required
+                  />
+                </div>
+              </div>
+              
+              <div className="form-row">
+                <div className="form-group">
+                  <label htmlFor="color">Color</label>
+                  <input
             type="text"
-            fullWidth
-            multiline
-            rows={2}
-            value={adjustmentForm.reason}
-            onChange={handleAdjustmentFormChange}
-            placeholder="e.g., Damaged stock"
-            error={!!adjustmentErrors.reason}
-            helperText={adjustmentErrors.reason}
-            InputLabelProps={{ shrink: true }}
-          />
-        </DialogContent>
-        <DialogActions className="dialog-actions">
-          <Button onClick={handleCloseAdjustModal} color="primary">
-            Cancel
-          </Button>
-          <Button 
-            onClick={handleSubmitAdjustment} 
-            color="primary"
-            variant="contained"
-            style={{ backgroundColor: '#3B3F51' }}
-          >
-            Submit Adjustment
-          </Button>
-        </DialogActions>
-      </Dialog>
+                    id="color"
+                    name="color"
+                    value={newProduct.color}
+                    onChange={handleInputChange}
+                    placeholder="e.g. White"
+                  />
+                </div>
+              </div>
+              
+              <div className="form-actions">
+                <button type="button" className="cancel-btn" onClick={handleCloseAddModal}>Cancel</button>
+                <button type="submit" className="submit-btn">Add Product</button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
 
-      {/* Receipt Modal */}
-      <Dialog 
-        open={openReceiveModal} 
-        onClose={handleCloseReceiveModal}
-        maxWidth="sm"
-        fullWidth
-      >
-        <DialogTitle className="dialog-title">
-          Receive Stock: {currentSku?.sku_code}
-        </DialogTitle>
-        <DialogContent className="dialog-content">
-          <Typography variant="subtitle1" sx={{ mb: 2 }}>
-            Current Stock: {currentSku?.stock.toFixed(1)}
-          </Typography>
-          
-          <TextField
-            margin="dense"
-            name="quantity_received"
-            label="Quantity Received"
+      {/* Edit Product Modal */}
+      {showEditModal && editingProduct && (
+        <div className="modal-overlay">
+          <div className="modal-content">
+            <div className="modal-header">
+              <h2>Edit Product</h2>
+              <button className="modal-close" onClick={handleCloseEditModal}>&times;</button>
+            </div>
+            <form onSubmit={handleSaveProduct} className="add-product-form">
+              <div className="form-row">
+                <div className="form-group">
+                  <label htmlFor="edit-sku">SKU*</label>
+                  <input
+                    type="text"
+                    id="edit-sku"
+                    name="sku"
+                    value={editingProduct.sku}
+                    onChange={handleEditInputChange}
+                    placeholder="e.g. FBR-CTN-001"
+                    required
+                  />
+                </div>
+                <div className="form-group">
+                  <label htmlFor="edit-name">Product Name*</label>
+                  <input
+                    type="text"
+                    id="edit-name"
+                    name="name"
+                    value={editingProduct.name}
+                    onChange={handleEditInputChange}
+                    placeholder="e.g. Cotton Fabric"
+                    required
+                  />
+                </div>
+              </div>
+              
+              <div className="form-row">
+                <div className="form-group">
+                  <label htmlFor="edit-category">Category*</label>
+                  <select
+                    id="edit-category"
+                    name="category"
+                    value={editingProduct.category}
+                    onChange={handleEditInputChange}
+                    required
+                  >
+                    <option value="Fabric">Fabric</option>
+                    <option value="Accessories">Accessories</option>
+                  </select>
+                </div>
+                <div className="form-group">
+                  <label htmlFor="edit-size">Size</label>
+                  <select
+                    id="edit-size"
+                    name="size"
+                    value={editingProduct.size}
+                    onChange={handleEditInputChange}
+                  >
+                    <option value="Standard">Standard</option>
+                    <option value="Small">Small</option>
+                    <option value="Medium">Medium</option>
+                    <option value="Large">Large</option>
+                  </select>
+                </div>
+              </div>
+              
+              <div className="form-row">
+                <div className="form-group">
+                  <label htmlFor="edit-price">Price (₹)*</label>
+                  <input
             type="number"
-            fullWidth
-            value={receiptForm.quantity_received}
-            onChange={handleReceiptFormChange}
-            placeholder="e.g., 50"
-            error={!!receiptErrors.quantity_received}
-            helperText={receiptErrors.quantity_received}
-            InputLabelProps={{ shrink: true }}
-          />
-          
-          <TextField
-            margin="dense"
-            name="supplier_info"
-            label="Supplier Info (Optional)"
+                    id="edit-price"
+                    name="price"
+                    value={editingProduct.price}
+                    onChange={handleEditInputChange}
+                    placeholder="0.00"
+                    min="0"
+                    step="0.01"
+                    required
+                  />
+                </div>
+                <div className="form-group">
+                  <label htmlFor="edit-quantity">Quantity*</label>
+                  <input
+                    type="number"
+                    id="edit-quantity"
+                    name="quantity"
+                    value={editingProduct.quantity}
+                    onChange={handleEditInputChange}
+                    placeholder="0"
+                    min="0"
+                    required
+                  />
+                </div>
+              </div>
+              
+              <div className="form-row">
+                <div className="form-group">
+                  <label htmlFor="edit-color">Color</label>
+                  <input
             type="text"
-            fullWidth
-            value={receiptForm.supplier_info}
-            onChange={handleReceiptFormChange}
-            placeholder="e.g., Supplier XYZ"
-            InputLabelProps={{ shrink: true }}
-          />
-        </DialogContent>
-        <DialogActions className="dialog-actions">
-          <Button onClick={handleCloseReceiveModal} color="primary">
-            Cancel
-          </Button>
-          <Button 
-            onClick={handleSubmitReceipt} 
-            color="primary"
-            variant="contained"
-            style={{ backgroundColor: '#3B3F51' }}
-          >
-            Record Receipt
-          </Button>
-        </DialogActions>
-      </Dialog>
-
-      <style jsx>{`
-        .MuiDataGrid-root .low-stock-row {
-          background-color: rgba(244, 67, 54, 0.08);
-        }
-      `}</style>
+                    id="edit-color"
+                    name="color"
+                    value={editingProduct.color}
+                    onChange={handleEditInputChange}
+                    placeholder="e.g. White"
+                  />
+                </div>
+              </div>
+              
+              <div className="form-actions">
+                <button type="button" className="cancel-btn" onClick={handleCloseEditModal}>Cancel</button>
+                <button type="submit" className="submit-btn">Save Changes</button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
     </div>
   );
 };

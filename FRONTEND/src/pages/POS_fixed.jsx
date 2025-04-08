@@ -25,8 +25,7 @@ import {
   FaPrint,
   FaDatabase,
   FaDownload,
-  FaHistory,
-  FaCalendarAlt
+  FaHistory
 } from 'react-icons/fa';
 import { QRCodeSVG } from "qrcode.react";
 import { Link } from "react-router-dom";
@@ -724,10 +723,6 @@ const POSInterface = () => {
             <p className="subtitle">Create and manage sales transactions</p>
           </div>
           <div className="top-bar-actions">
-            <div className="date-display">
-              <FaCalendarAlt />
-              <span>{new Date().toLocaleDateString('en-US', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })}</span>
-            </div>
             <div className="user-menu-container">
               <button className="user-menu-btn" onClick={toggleUserMenu}>
                 <FaUserCircle />
@@ -740,17 +735,16 @@ const POSInterface = () => {
                       <FaUserCircle />
                     </div>
                     <div className="user-details">
-                      <h3>{userData.name || 'Demo User'}</h3>
-                      <p>{userData.email || 'demo@miratextile.com'}</p>
-                      <span className="user-role">Admin</span>
+                      <h3>{userData.name}</h3>
+                      <p>{userData.email}</p>
                     </div>
                   </div>
                   <div className="user-actions">
-                    <button className="view-profile-btn" onClick={handleUser}>
-                      <FaUserCircle /> View Profile
-                    </button>
                     <button className="reset-password-btn" onClick={handleResetPassword}>
                       <FaKey /> Reset Password
+                    </button>
+                    <button className="reset-password-btn" onClick={handleUser}>
+                      <AiFillIdcard /> User Profile
                     </button>
                     <button className="logout-btn" onClick={handleLogout}>
                       <FaSignOutAlt /> Logout
@@ -763,92 +757,95 @@ const POSInterface = () => {
         </div>
 
         {/* POS Content */}
-            <div className="pos-container">
-          {/* Order Entry Section */}
-          <div className="pos-card">
-            <h2 className="pos-card-title"><FaShoppingCart /> Create Order</h2>
-            
-                  {/* Customer Selection */}
-                    <div className="customer-selection">
-                      <select 
-                className="customer-select"
-                        value={selectedCustomer} 
-                        onChange={handleCustomerChange}
-                      >
-                <option value="">Select Customer</option>
-                        {customers.map(customer => (
-                          <option key={customer.id} value={customer.id}>
-                            {customer.name} - {customer.contact_info}
-                          </option>
-                        ))}
-                      </select>
-                      <button 
-                className="add-customer-btn"
-                onClick={() => setShowAddCustomerModal(true)}
-              >
-                <FaUserPlus /> New Customer
-                      </button>
-                  </div>
+        {isLoading ? (
+          <div className="loading-spinner" data-text="Loading POS data..."></div>
+        ) : (
+          <div className="pos-container">
+            {/* Order Entry Section */}
+            <div className="pos-card">
+              <h2 className="pos-card-title"><FaShoppingCart /> Create Order</h2>
+              
+              {/* Customer Selection */}
+              <div className="customer-selection">
+                <select 
+                  className="customer-select"
+                  value={selectedCustomer} 
+                  onChange={handleCustomerChange}
+                >
+                  <option value="">Select Customer</option>
+                  {customers.map(customer => (
+                    <option key={customer.id} value={customer.id}>
+                      {customer.name} - {customer.contact_info}
+                    </option>
+                  ))}
+                </select>
+                <button 
+                  className="add-customer-btn"
+                  onClick={() => setShowAddCustomerModal(true)}
+                >
+                  <FaUserPlus /> New Customer
+                </button>
+              </div>
 
-                  {/* Order Items */}
-            <table className="order-items-table">
-                        <thead>
-                          <tr>
-                  <th>Product</th>
-                            <th>Quantity</th>
-                  <th>Price</th>
-                            <th>Subtotal</th>
-                  <th></th>
-                          </tr>
-                        </thead>
-                        <tbody>
-                          {orderItems.map((item, index) => (
-                  <tr key={index} className="order-item-row">
-                              <td>
-                                <select
-                        className="sku-select"
-                                  value={item.sku_id}
-                                  onChange={(e) => handleItemChange(index, 'sku_id', e.target.value)}
-                                >
-                        <option value="">Select Product</option>
-                                  {skus.map(sku => (
-                                    <option key={sku.id} value={sku.id}>
-                            {sku.code} - {sku.name} (₹{sku.price})
-                                    </option>
-                                  ))}
-                                </select>
-                              </td>
-                              <td>
-                                <input
-                                  type="number"
-                                  className="quantity-input"
-                        value={item.quantity}
-                        min="1"
-                        onChange={(e) => handleItemChange(index, 'quantity', parseInt(e.target.value))}
-                                />
-                              </td>
-                    <td>
-                      {item.sku_id ? (
-                        <span>₹{skus.find(sku => sku.id === parseInt(item.sku_id))?.price || 0}</span>
-                      ) : '-'}
-                    </td>
-                    <td>
-                      <span className="subtotal">₹{item.subtotal || 0}</span>
-                    </td>
-                              <td>
-                                <button 
-                                  className="remove-item-btn"
+              {/* Order Items */}
+              <table className="order-items-table">
+                          <thead>
+                            <tr>
+                    <th>Product</th>
+                              <th>Quantity</th>
+                    <th>Price</th>
+                              <th>Subtotal</th>
+                    <th></th>
+                            </tr>
+                          </thead>
+                          <tbody>
+                            {orderItems.map((item, index) => (
+                    <tr key={index} className="order-item-row">
+                                <td>
+                                  <select
+                    className="sku-select"
+                                    value={item.sku_id}
+                                    onChange={(e) => handleItemChange(index, 'sku_id', e.target.value)}
+                                  >
+                    <option value="">Select Product</option>
+                                    {skus.map(sku => (
+                                      <option key={sku.id} value={sku.id}>
+                      {sku.code} - {sku.name} (₹{sku.price})
+                                      </option>
+                                    ))}
+                                  </select>
+                                </td>
+                                <td>
+                                  <input
+                                    type="number"
+                                    className="quantity-input"
+                                    value={item.quantity}
+                                    min="1"
+                                    onChange={(e) => handleItemChange(index, 'quantity', parseInt(e.target.value))}
+                                  />
+                                </td>
+                      <td>
+                        {item.sku_id ? (
+                          <span>₹{skus.find(sku => sku.id === parseInt(item.sku_id))?.price || 0}</span>
+                        ) : '-'}
+                      </td>
+                      <td>
+                        <span className="subtotal">₹{item.subtotal || 0}</span>
+                      </td>
+                                <td>
+                                  <button 
+                                    className="remove-item-btn"
                         onClick={() => removeOrderItem(index)}
                         disabled={orderItems.length === 1}
                         title="Remove Item"
-                                >
-                                  <FaTrash />
-                                </button>
-                              </td>
-                            </tr>
-                          ))}
-                        </tbody>
-                      </table>
+                                  >
+                                    <FaTrash />
+                                  </button>
+                                </td>
+                              </tr>
+                            ))}
+                          </tbody>
+                        </table>
             
             <button className="add-item-btn" onClick={addOrderItem}>
               <FaPlus /> Add Product
@@ -1017,43 +1014,45 @@ const POSInterface = () => {
 
                   <div className="submit-container">
                     <button 
-                  className="complete-sale-btn"
+                      className="complete-sale-btn"
                       onClick={submitOrder}
                       disabled={
                         !selectedCustomer || 
-                    orderItems.some(item => !item.sku_id) ||
-                    parseFloat(totals.total) <= 0 ||
-                    (activePaymentTab === 'cash' && amountReceived < parseFloat(totals.total))
+                        orderItems.some(item => !item.sku_id) ||
+                        parseFloat(totals.total) <= 0 ||
+                        (activePaymentTab === 'cash' && amountReceived < parseFloat(totals.total))
                       }
                     >
                       <FaSave /> Complete Sale
                     </button>
                   </div>
             
-              {/* Additional action buttons */}
-              <div className="additional-actions">
-                {lastSavedOrder && (
-                  <>
-                    <button 
-                      className="action-button print-button" 
-                      onClick={() => printReceipt(lastSavedOrder)}
-                      disabled={isPrinting}
-                    >
-                      <FaPrint /> {isPrinting ? 'Printing...' : 'Print Last Receipt'}
-                    </button>
-                    <button 
-                      className="action-button sync-button" 
-                      onClick={() => syncWithInventory(lastSavedOrder)}
-                      disabled={isInventorySyncing}
-                    >
-                      <FaDatabase /> {isInventorySyncing ? 'Syncing...' : 'Sync Inventory'}
-                    </button>
-                  </>
-                )}
+                  {/* Additional action buttons */}
+                  <div className="additional-actions">
+                    {lastSavedOrder && (
+                      <>
+                        <button 
+                          className="action-button print-button" 
+                          onClick={() => printReceipt(lastSavedOrder)}
+                          disabled={isPrinting}
+                        >
+                          <FaPrint /> {isPrinting ? 'Printing...' : 'Print Last Receipt'}
+                        </button>
+                        <button 
+                          className="action-button sync-button" 
+                          onClick={() => syncWithInventory(lastSavedOrder)}
+                          disabled={isInventorySyncing}
+                        >
+                          <FaDatabase /> {isInventorySyncing ? 'Syncing...' : 'Sync Inventory'}
+                        </button>
+                      </>
+                    )}
+                  </div>
                 </div>
               </div>
             </div>
-        </div>
+          </div>
+        )}
       </div>
 
       {/* Add Customer Modal */}

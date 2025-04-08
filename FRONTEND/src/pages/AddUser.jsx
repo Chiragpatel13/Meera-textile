@@ -1,5 +1,20 @@
 import React, { useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, Link } from 'react-router-dom';
+import { 
+  FaUserPlus, 
+  FaUserCircle, 
+  FaBars, 
+  FaSignOutAlt, 
+  FaKey,
+  FaCalendarAlt,
+  FaChartBar,
+  FaBox,
+  FaCashRegister,
+  FaUsers,
+  FaFolder,
+  FaArrowLeft
+} from 'react-icons/fa';
+import '../styles/dashboard.css';
 import '../styles/AddUser.css';
 
 const AddUser = () => {
@@ -8,136 +23,286 @@ const AddUser = () => {
     username: '',
     fullName: '',
     email: '',
+    password: '',
     role: 'SALES_STAFF'
   });
-  const [error, setError] = useState('');
-  const [success, setSuccess] = useState('');
+  const [formErrors, setFormErrors] = useState({});
   const [isLoading, setIsLoading] = useState(false);
+  const [successMessage, setSuccessMessage] = useState('');
+  const [errorMessage, setErrorMessage] = useState('');
+  const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
+  const [userMenuOpen, setUserMenuOpen] = useState(false);
+  const [userData] = useState({
+    name: 'Admin User',
+    email: 'admin@miratextile.com'
+  });
 
-  const handleChange = (e) => {
+  const handleInputChange = (e) => {
     const { name, value } = e.target;
-    setFormData(prevState => ({
-      ...prevState,
+    setFormData({
+      ...formData,
       [name]: value
-    }));
+    });
+    // Clear error when field is updated
+    if (formErrors[name]) {
+      setFormErrors({
+        ...formErrors,
+        [name]: null
+      });
+    }
+  };
+
+  const validateForm = () => {
+    const errors = {};
+    if (!formData.username.trim()) errors.username = 'Username is required';
+    if (!formData.fullName.trim()) errors.fullName = 'Full name is required';
+    if (!formData.email.trim()) errors.email = 'Email is required';
+    if (!formData.password.trim()) errors.password = 'Password is required';
+    if (formData.password.length < 8) errors.password = 'Password must be at least 8 characters';
+    if (!formData.role) errors.role = 'Role is required';
+
+    setFormErrors(errors);
+    return Object.keys(errors).length === 0;
   };
 
   const handleSubmit = async (e) => {
     e.preventDefault();
-    setError('');
-    setSuccess('');
+    if (!validateForm()) return;
+
     setIsLoading(true);
+    setErrorMessage('');
+    setSuccessMessage('');
 
     try {
-      console.log('Sending user creation request:', formData);
-      
-      const response = await fetch('http://localhost:8082/api/admin/users', {
+      const token = localStorage.getItem('token');
+      if (!token) {
+        throw new Error('No authentication token found');
+      }
+
+      const response = await fetch('http://localhost:5000/api/admin/users', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          'Authorization': `Bearer ${localStorage.getItem('token')}`
+          'Authorization': `Bearer ${token}`
         },
-        body: JSON.stringify(formData)
+        body: JSON.stringify({
+          username: formData.username,
+          fullName: formData.fullName,
+          email: formData.email,
+          password: formData.password,
+          role: formData.role
+        })
       });
-
-      console.log('Response status:', response.status);
-      const data = await response.json();
-      console.log('Response data:', data);
 
       if (!response.ok) {
-        throw new Error(data.message || data.error || 'Failed to create user');
+        const errorData = await response.json();
+        throw new Error(errorData.message || 'Failed to create user');
       }
 
-      setSuccess('User created successfully! A default password has been set and sent to their email.');
-      setFormData({
-        username: '',
-        fullName: '',
-        email: '',
-        role: 'SALES_STAFF'
-      });
-      
-      // Navigate to UserManagement page after successful creation
+      setSuccessMessage('User created successfully!');
       setTimeout(() => {
-        navigate('/admin/users');
-      }, 2000);
+        navigate('/UserManagement');
+      }, 1500);
+
     } catch (error) {
       console.error('Error creating user:', error);
-      setError(error.message || 'An error occurred while creating the user');
+      setErrorMessage(error.message || 'An error occurred while creating the user');
     } finally {
       setIsLoading(false);
     }
   };
 
+  const toggleSidebar = () => {
+    setSidebarCollapsed(!sidebarCollapsed);
+  };
+
+  const toggleUserMenu = () => {
+    setUserMenuOpen(!userMenuOpen);
+  };
+
+  const handleLogout = () => {
+    localStorage.clear();
+    navigate('/login');
+  };
+
+  const handleResetPassword = () => {
+    navigate('/ResetPassword');
+  };
+
+  const handleUser = () => {
+    navigate('/Profile');
+  };
+
   return (
-    <div className="add-user-container">
-      <div className="add-user-card">
-        <h2>Add New User</h2>
-        {error && <div className="error-message">{error}</div>}
-        {success && <div className="success-message">{success}</div>}
-        
-        <form onSubmit={handleSubmit} className="add-user-form">
-          <div className="form-group">
-            <label htmlFor="username">Username</label>
-            <input
-              type="text"
-              id="username"
-              name="username"
-              value={formData.username}
-              onChange={handleChange}
-              required
-              placeholder="Enter username"
-            />
-          </div>
+    <div className="admin-dashboard">
+      {/* Sidebar */}
+      <div className={`sidebar ${sidebarCollapsed ? 'collapsed' : ''}`}>
+        <div className="sidebar-header">
+          <h3>Mira Textile</h3>
+          <button className="collapse-btn" onClick={toggleSidebar}>
+            <FaBars />
+          </button>
+        </div>
+        <ul className="sidebar-menu">
+          <li><Link to="/dashboard"><FaChartBar /> <span>Dashboard</span></Link></li>
+          <li><Link to="/inventory/manage"><FaBox /> <span>Inventory</span></Link></li>
+          <li><Link to="/pos"><FaCashRegister /> <span>POS</span></Link></li>
+          <li><Link to="/CustomerManagement"><FaUsers /> <span>Customers</span></Link></li>
+          <li className="active"><Link to="/UserManagement"><FaUserCircle /> <span>Users</span></Link></li>
+          <li><Link to="/Reportingpage"><FaFolder /> <span>Reports</span></Link></li>
+        </ul>
+      </div>
 
-          <div className="form-group">
-            <label htmlFor="fullName">Full Name</label>
-            <input
-              type="text"
-              id="fullName"
-              name="fullName"
-              value={formData.fullName}
-              onChange={handleChange}
-              required
-              placeholder="Enter full name"
-            />
+      {/* Main Content */}
+      <div className="main-content" style={{ marginLeft: sidebarCollapsed ? '70px' : '240px' }}>
+        {/* Top Bar */}
+        <div className="top-bar">
+          <div className="page-title">
+            <h1>Add New User</h1>
+            <p className="subtitle">Create a new system user account</p>
           </div>
+          <div className="top-bar-actions">
+            <div className="date-display">
+              <FaCalendarAlt />
+              <span>{new Date().toLocaleDateString('en-US', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })}</span>
+            </div>
+            
+            <div className="user-menu-container">
+              <button className="user-menu-btn" onClick={toggleUserMenu}>
+                <FaUserCircle />
+              </button>
+              
+              {userMenuOpen && (
+                <div className="user-popup">
+                  <div className="user-info">
+                    <div className="user-avatar">
+                      <FaUserCircle />
+                    </div>
+                    <div className="user-details">
+                      <h3>{userData.name}</h3>
+                      <p>{userData.email}</p>
+                      <span className="user-role">Admin</span>
+                    </div>
+                  </div>
+                  <div className="user-actions">
+                    <button className="view-profile-btn" onClick={handleUser}>
+                      <FaUserCircle /> View Profile
+                    </button>
+                    <button className="reset-password-btn" onClick={handleResetPassword}>
+                      <FaKey /> Reset Password
+                    </button>
+                    <button className="logout-btn" onClick={handleLogout}>
+                      <FaSignOutAlt /> Logout
+                    </button>
+                  </div>
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
 
-          <div className="form-group">
-            <label htmlFor="email">Email</label>
-            <input
-              type="email"
-              id="email"
-              name="email"
-              value={formData.email}
-              onChange={handleChange}
-              required
-              placeholder="Enter email"
-            />
-          </div>
+        {/* Add User Form */}
+        <div className="add-user-page">
+          <div className="add-user-card">
+            <div className="form-header">
+              <button className="back-button" onClick={() => navigate('/UserManagement')}>
+                <FaArrowLeft /> Back to Users
+              </button>
+              <h2>User Information</h2>
+            </div>
 
-          <div className="form-group">
-            <label htmlFor="role">Role</label>
-            <select
-              id="role"
-              name="role"
-              value={formData.role}
-              onChange={handleChange}
-              required
-            >
-              <option value="SALES_STAFF">Sales Staff</option>
-              <option value="INVENTORY_STAFF">Inventory Staff</option>
-            </select>
-          </div>
+            {successMessage && (
+              <div className="success-message">
+                {successMessage}
+              </div>
+            )}
 
-          <div className="form-actions">
-            <button type="submit" disabled={isLoading}>
-              {isLoading ? 'Creating...' : 'Create User'}
-            </button>
-            <button type="button" onClick={() => navigate('/admin/dashboard')} className="cancel-btn">
-              Cancel
-            </button>
+            {errorMessage && (
+              <div className="error-message">
+                {errorMessage}
+              </div>
+            )}
+
+            <form onSubmit={handleSubmit}>
+              <div className="form-group">
+                <label htmlFor="username">Username</label>
+                <input
+                  type="text"
+                  id="username"
+                  name="username"
+                  value={formData.username}
+                  onChange={handleInputChange}
+                  placeholder="Enter username"
+                  className={formErrors.username ? 'error' : ''}
+                />
+                {formErrors.username && <span className="error-message">{formErrors.username}</span>}
+              </div>
+
+              <div className="form-group">
+                <label htmlFor="fullName">Full Name</label>
+                <input
+                  type="text"
+                  id="fullName"
+                  name="fullName"
+                  value={formData.fullName}
+                  onChange={handleInputChange}
+                  placeholder="Enter full name"
+                  className={formErrors.fullName ? 'error' : ''}
+                />
+                {formErrors.fullName && <span className="error-message">{formErrors.fullName}</span>}
+              </div>
+
+              <div className="form-group">
+                <label htmlFor="email">Email Address</label>
+                <input
+                  type="email"
+                  id="email"
+                  name="email"
+                  value={formData.email}
+                  onChange={handleInputChange}
+                  placeholder="Enter email address"
+                  className={formErrors.email ? 'error' : ''}
+                />
+                {formErrors.email && <span className="error-message">{formErrors.email}</span>}
+              </div>
+
+              <div className="form-group">
+                <label htmlFor="password">Password</label>
+                <input
+                  type="password"
+                  id="password"
+                  name="password"
+                  value={formData.password}
+                  onChange={handleInputChange}
+                  placeholder="Enter password"
+                  className={formErrors.password ? 'error' : ''}
+                />
+                {formErrors.password && <span className="error-message">{formErrors.password}</span>}
+              </div>
+
+              <div className="form-group">
+                <label htmlFor="role">Role</label>
+                <select
+                  id="role"
+                  name="role"
+                  value={formData.role}
+                  onChange={handleInputChange}
+                  className={formErrors.role ? 'error' : ''}
+                >
+                  <option value="SALES_STAFF">Sales Staff</option>
+                  <option value="INVENTORY_STAFF">Inventory Staff</option>
+                </select>
+                {formErrors.role && <span className="error-message">{formErrors.role}</span>}
+              </div>
+
+              <div className="form-actions">
+                <button type="submit" className="submit-button" disabled={isLoading}>
+                  {isLoading ? 'Creating User...' : 'Create User'}
+                </button>
+              </div>
+            </form>
           </div>
-        </form>
+        </div>
       </div>
     </div>
   );
