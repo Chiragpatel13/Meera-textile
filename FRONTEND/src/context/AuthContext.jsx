@@ -1,62 +1,73 @@
 // src/context/AuthContext.js
 import React, { createContext, useState, useContext, useEffect } from 'react';
+import { fetchUserProfile } from '../services/api';
 
 const AuthContext = createContext();
 
-// Default user with admin role
-const DEFAULT_USER = {
-  role: 'STORE_MANAGER',
-  username: 'admin'
-};
-
 export const AuthProvider = ({ children }) => {
-  const [user, setUser] = useState(() => {
-    // Always provide a default user even if not logged in
-    return DEFAULT_USER;
-  });
+  const [user, setUser] = useState(null);
+  const [loading, setLoading] = useState(true);
 
-  // Set up default authentication on mount
+  // Check authentication status on mount
   useEffect(() => {
-    // Ensure token exists
-    if (!localStorage.getItem('token')) {
-      localStorage.setItem('token', 'bypass-auth-token');
-    }
+    const checkAuth = async () => {
+      const token = localStorage.getItem('token');
+      
+      if (token) {
+        try {
+          const userData = await fetchUserProfile();
+          setUser(userData);
+        } catch (error) {
+          console.error('Error fetching user profile:', error);
+          // Clear invalid token
+          localStorage.removeItem('token');
+          setUser(null);
+        }
+      }
+      
+      setLoading(false);
+    };
     
-    // Ensure user data exists
-    if (!localStorage.getItem('user')) {
-      localStorage.setItem('user', JSON.stringify(DEFAULT_USER));
-    }
+    checkAuth();
   }, []);
 
   const login = (userData) => {
     setUser(userData);
-    localStorage.setItem('user', JSON.stringify(userData));
+    // Token is already stored by the login API call
     console.log('User logged in:', userData);
   };
 
   const logout = () => {
     try {
-      // Don't actually clear the user, just reset to default
-      setUser(DEFAULT_USER);
+      // Clear all auth data
+      localStorage.removeItem('token');
+      localStorage.removeItem('userName');
+      localStorage.removeItem('userEmail');
+      localStorage.removeItem('userRole');
+      setUser(null);
       
-      // Clean up any authentication data
-      localStorage.setItem('user', JSON.stringify(DEFAULT_USER));
-      
-      // Optional: clear sensitive data but keep defaults
-      // Comment these out if you want to preserve the session
-      // localStorage.clear();
-      // sessionStorage.clear();
-      
-      console.log('User reset to default admin');
+      console.log('User logged out');
     } catch (error) {
-      console.error('Error during logout in context:', error);
-      // Still reset to default user even if there's an error
-      setUser(DEFAULT_USER);
+      console.error('Error during logout:', error);
+      // Still clear user even if there's an error
+      setUser(null);
     }
   };
 
+  const value = {
+    user,
+    loading,
+    login,
+    logout,
+    isAuthenticated: !!user
+  };
+
+  if (loading) {
+    return <div>Loading...</div>;
+  }
+
   return (
-    <AuthContext.Provider value={{ user, login, logout }}>
+    <AuthContext.Provider value={value}>
       {children}
     </AuthContext.Provider>
   );

@@ -30,6 +30,7 @@ import { AiFillIdcard } from 'react-icons/ai';
 import '../styles/dashboard.css';
 import '../styles/inventory.css';
 import LoadingAnimation from '../components/LoadingAnimation';
+import { useAuth } from '../context/AuthContext';
 
 // Dummy data for inventory items
 const dummyInventoryData = [
@@ -165,6 +166,12 @@ const categories = [
 
 const InventoryManagement = () => {
   const navigate = useNavigate();
+  const { user } = useAuth();
+  const [userData, setUserData] = useState({
+    name: user?.full_name || user?.username || '',
+    email: user?.email || '',
+    role: user?.role || ''
+  });
   // State management
   const [inventory, setInventory] = useState(dummyInventoryData);
   const [filteredInventory, setFilteredInventory] = useState(dummyInventoryData);
@@ -187,11 +194,45 @@ const InventoryManagement = () => {
     status: 'In Stock',
     lastUpdated: new Date().toISOString().slice(0, 10)
   });
-  const [userData] = useState({
-    name: 'Inventory Manager',
-    email: 'inventory@miratextile.com'
-  });
   
+  useEffect(() => {
+    fetchUserData();
+  }, [user]);
+
+  const fetchUserData = async () => {
+    try {
+      const token = localStorage.getItem('token');
+      if (!token) {
+        navigate('/login');
+        return;
+      }
+
+      const response = await fetch('http://localhost:8080/api/auth/profile', {
+        headers: {
+          'Authorization': `Bearer ${token}`
+        }
+      });
+
+      if (!response.ok) {
+        throw new Error('Failed to fetch user data');
+      }
+
+      const data = await response.json();
+      setUserData({
+        name: data.full_name || data.username,
+        email: data.email,
+        role: data.role
+      });
+    } catch (error) {
+      console.error('Error fetching user data:', error);
+      setUserData({
+        name: user?.full_name || user?.username || 'User',
+        email: user?.email || '',
+        role: user?.role || ''
+      });
+    }
+  };
+
   // Filter inventory based on search and category
   useEffect(() => {
     let result = inventory;

@@ -20,11 +20,13 @@ import {
   FaMapMarkerAlt
 } from 'react-icons/fa';
 import '../styles/dashboard.css';
+import { useAuth } from '../context/AuthContext';
 
 const API_BASE_URL = 'http://localhost:8082/api';
 
 const Profile = () => {
   const navigate = useNavigate();
+  const { user } = useAuth();
   const [formData, setFormData] = useState({
     username: '',
     email: '',
@@ -41,86 +43,59 @@ const Profile = () => {
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
   const [userMenuOpen, setUserMenuOpen] = useState(false);
   const [userData, setUserData] = useState({
-    name: localStorage.getItem('userName') || 'Loading...',
-    email: localStorage.getItem('userEmail') || 'Loading...',
-    role: localStorage.getItem('userRole') || 'Unknown Role'
+    name: user?.full_name || user?.username || '',
+    email: user?.email || '',
+    phoneNumber: user?.phone_number || '',
+    address: user?.address || '',
+    role: user?.role || ''
   });
 
-  const fetchProfileData = useCallback(async () => {
-    setIsLoading(true);
+  const fetchUserProfile = async () => {
     try {
       const token = localStorage.getItem('token');
       if (!token) {
-        console.error('No authentication token found');
-        navigate('/Login');
+        navigate('/login');
         return;
       }
 
-      const response = await fetch(`${API_BASE_URL}/admin/users/current`, {
-        method: 'GET',
+      const response = await fetch('http://localhost:8080/api/auth/profile', {
         headers: {
-          'Authorization': `Bearer ${token}`,
-          'Content-Type': 'application/json'
+          'Authorization': `Bearer ${token}`
         }
       });
 
-      // Don't redirect to login for non-401/403 errors
-      if (response.status === 401 || response.status === 403) {
-        console.error('Authentication failed');
-        localStorage.removeItem('token');
-        navigate('/Login');
-        return;
-      }
-
       if (!response.ok) {
-        throw new Error('Failed to fetch profile data');
+        throw new Error('Failed to fetch user profile');
       }
 
       const data = await response.json();
-      
-      if (data.success && data.data) {
-        const userData = data.data;
-        setFormData({
-          fullName: userData.full_name || '',
-          email: userData.email || '',
-          phoneNumber: userData.phone_number || '',
-          address: userData.address || '',
-          role: userData.role || ''
-        });
-        
-        // Update user data in state and localStorage
-        const updatedUserData = {
-          name: userData.full_name || userData.username || 'Unknown User',
-          email: userData.email || 'No email',
-          role: userData.role || 'Unknown Role'
-        };
-        
-        setUserData(updatedUserData);
-        localStorage.setItem('userName', updatedUserData.name);
-        localStorage.setItem('userEmail', updatedUserData.email);
-        localStorage.setItem('userRole', updatedUserData.role);
-      } else {
-        throw new Error(data.message || 'Failed to fetch user data');
-      }
+      const updatedUserData = {
+        name: data.full_name || data.username || 'Unknown User',
+        email: data.email || 'No email',
+        phoneNumber: data.phone_number || '',
+        address: data.address || '',
+        role: data.role || 'Unknown Role'
+      };
+
+      setUserData(updatedUserData);
+      localStorage.setItem('userName', updatedUserData.name);
+      localStorage.setItem('userEmail', updatedUserData.email);
+      localStorage.setItem('userRole', updatedUserData.role);
     } catch (error) {
-      console.error('Error fetching profile data:', error);
-      // Only redirect to login if it's an authentication error
-      if (error.message.includes('Authentication failed') || error.message.includes('Invalid token')) {
-        navigate('/Login');
-      } else {
-        setErrors({
-          ...errors,
-          general: 'Failed to load profile data. Please try again.'
-        });
-      }
-    } finally {
-      setIsLoading(false);
+      console.error('Error fetching user profile:', error);
+      setUserData({
+        name: user?.full_name || user?.username || 'User',
+        email: user?.email || '',
+        phoneNumber: user?.phone_number || '',
+        address: user?.address || '',
+        role: user?.role || ''
+      });
     }
-  }, [navigate]);
+  };
 
   useEffect(() => {
-    fetchProfileData();
-  }, [fetchProfileData]);
+    fetchUserProfile();
+  }, [user]);
 
   const handleChange = (e) => {
     const { name, value } = e.target;
@@ -352,7 +327,7 @@ const Profile = () => {
             <h1>Profile</h1>
           </div>
           <div className="top-bar-actions">
-            <button className="refresh-btn" onClick={fetchProfileData}>
+            <button className="refresh-btn" onClick={fetchUserProfile}>
               <FaSync />
             </button>
             <div className="user-menu-container">

@@ -45,6 +45,7 @@ import '../styles/dashboard.css';
 import ChartDataLabels from 'chartjs-plugin-datalabels';
 import { API_CONFIG, API_BASE_URL, AUTH_CONFIG } from '../config';
 import LoadingAnimation from '../components/LoadingAnimation';
+import { useAuth } from '../context/AuthContext';
 
 // Register ChartJS components
 ChartJS.register(
@@ -138,17 +139,18 @@ const fallbackData = {
 
 const Dashboard = () => {
   const navigate = useNavigate();
+  const { user } = useAuth();
   const [salesData, setSalesData] = useState(null);
   const [outstandingCredits, setOutstandingCredits] = useState([]);
   const [isLoading, setIsLoading] = useState(true);
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
   const [userMenuOpen, setUserMenuOpen] = useState(false);
   const [userData, setUserData] = useState({
-    name: '',
-    email: '',
-    role: 'Admin',
-    lastLogin: new Date().toLocaleString(),
-    storeLocation: 'Main Store'
+    name: user?.full_name || user?.username || '',
+    email: user?.email || '',
+    role: user?.role || '',
+    lastLogin: user?.last_login || '',
+    storeLocation: user?.store_location || ''
   });
   
   const [userPreferences, setUserPreferences] = useState({
@@ -187,7 +189,7 @@ const Dashboard = () => {
   useEffect(() => {
     fetchDashboardData();
     fetchUserData();
-  }, []);
+  }, [user]);
 
   const fetchDashboardData = async () => {
     setIsLoading(true);
@@ -262,48 +264,38 @@ const Dashboard = () => {
 
   const fetchUserData = async () => {
     try {
-      // Get user ID from localStorage or context
-      const userId = localStorage.getItem('userId');
-      if (userId) {
-        const response = await fetch(`${API_BASE_URL}/users/${userId}`);
-        if (response.ok) {
-          const userData = await response.json();
-          setUserData({
-            name: userData.fullName || userData.username,
-            email: userData.email,
-            role: userData.role,
-            lastLogin: userData.lastLogin,
-            storeLocation: userData.storeLocation
-          });
-        } else {
-          // Fallback user data
-          setUserData({
-            name: 'Demo User',
-            email: 'demo@miratextile.com',
-            role: 'Admin',
-            lastLogin: new Date().toLocaleString(),
-            storeLocation: 'Main Store'
-          });
-        }
-      } else {
-        // Fallback user data
-        setUserData({
-          name: 'Demo User',
-          email: 'demo@miratextile.com',
-          role: 'Admin',
-          lastLogin: new Date().toLocaleString(),
-          storeLocation: 'Main Store'
-        });
+      const token = localStorage.getItem('token');
+      if (!token) {
+        navigate('/login');
+        return;
       }
+
+      const response = await fetch('http://localhost:8080/api/auth/profile', {
+        headers: {
+          'Authorization': `Bearer ${token}`
+        }
+      });
+
+      if (!response.ok) {
+        throw new Error('Failed to fetch user data');
+      }
+
+      const data = await response.json();
+      setUserData({
+        name: data.full_name || data.username,
+        email: data.email,
+        role: data.role,
+        lastLogin: data.last_login,
+        storeLocation: data.store_location
+      });
     } catch (error) {
       console.error('Error fetching user data:', error);
-      // Fallback user data
       setUserData({
-        name: 'Demo User',
-        email: 'demo@miratextile.com',
-        role: 'Admin',
-        lastLogin: new Date().toLocaleString(),
-        storeLocation: 'Main Store'
+        name: user?.full_name || user?.username || 'User',
+        email: user?.email || '',
+        role: user?.role || '',
+        lastLogin: user?.last_login || '',
+        storeLocation: user?.store_location || ''
       });
     }
   };

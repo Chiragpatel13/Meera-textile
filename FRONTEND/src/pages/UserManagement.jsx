@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { 
   FaUserPlus, 
@@ -17,11 +17,13 @@ import {
   FaSearch,
   FaFilter
 } from 'react-icons/fa';
+import { useAuth } from '../context/AuthContext';
 import '../styles/dashboard.css';
 import '../styles/UserManagement.css';
 
 const UserManagement = () => {
   const navigate = useNavigate();
+  const { user } = useAuth();
   const [users, setUsers] = useState([]);
   const [filteredUsers, setFilteredUsers] = useState([]);
   const [searchTerm, setSearchTerm] = useState('');
@@ -40,10 +42,6 @@ const UserManagement = () => {
   });
   const [formErrors, setFormErrors] = useState({});
   const [successMessage, setSuccessMessage] = useState('');
-  const [userData] = useState({
-    name: 'Admin User',
-    email: 'admin@miratextile.com'
-  });
   const [errorMessage, setErrorMessage] = useState('');
 
   useEffect(() => {
@@ -52,67 +50,103 @@ const UserManagement = () => {
 
   useEffect(() => {
     filterUsers();
-  }, [searchTerm, users]);
+  }, [searchTerm, users, filterUsers]);
 
   const fetchUsers = async () => {
-    setIsLoading(true);
     try {
-      // For demo purposes, using mock data
-      const mockUsers = [
-        {
-          id: 1,
-          username: 'john_doe',
-          fullName: 'John Doe',
-          email: 'john@example.com',
-          role: 'SALES_STAFF',
-          createdAt: new Date(),
-          active: true
-        },
-        {
-          id: 2,
-          username: 'jane_smith',
-          fullName: 'Jane Smith',
-          email: 'jane@example.com',
-          role: 'INVENTORY_STAFF',
-          createdAt: new Date(),
-          active: true
+      const token = localStorage.getItem('token');
+      if (!token) {
+        throw new Error('No authentication token found');
+      }
+
+      const response = await fetch('http://localhost:8080/api/admin/users', {
+        headers: {
+          'Authorization': `Bearer ${token}`
         }
-      ];
-      
-      setUsers(mockUsers);
-      setFilteredUsers(mockUsers);
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.message || 'Failed to fetch users');
+      }
+
+      const data = await response.json();
+      setUsers(data);
     } catch (error) {
       console.error('Error fetching users:', error);
-      setErrorMessage('Failed to fetch users');
+      setErrorMessage(error.message || 'Failed to fetch users. Please try again.');
     } finally {
       setIsLoading(false);
     }
   };
 
-  const filterUsers = () => {
+  const filterUsers = useCallback(() => {
     if (!searchTerm) {
       setFilteredUsers(users);
-        return;
-      }
+      return;
+    }
 
     const filtered = users.filter(user => 
       user.username.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      user.fullName.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      user.full_name.toLowerCase().includes(searchTerm.toLowerCase()) ||
       user.email.toLowerCase().includes(searchTerm.toLowerCase())
     );
     
     setFilteredUsers(filtered);
-  };
+  }, [searchTerm, users]);
 
   const handleDeleteUser = async (userId) => {
-    if (window.confirm('Are you sure you want to delete this user?')) {
-      try {
-        // For demo purposes, just filter out the user
-        setUsers(prevUsers => prevUsers.filter(user => user.id !== userId));
-      } catch (error) {
-        console.error('Error deleting user:', error);
-        alert('Failed to delete user. Please try again.');
+    if (!userId) {
+      setErrorMessage('Invalid user ID');
+      return;
+    }
+
+    if (!window.confirm('Are you sure you want to delete this user?')) {
+      return;
+    }
+
+    setIsLoading(true);
+    setErrorMessage('');
+    setSuccessMessage('');
+
+    try {
+      const token = localStorage.getItem('token');
+      if (!token) {
+        throw new Error('No authentication token found');
       }
+
+      const response = await fetch(`http://localhost:8080/api/admin/users/${userId}`, {
+        method: 'DELETE',
+        headers: {
+          'Authorization': `Bearer ${token}`
+        }
+      });
+
+      const data = await response.json();
+
+      if (!response.ok) {
+        // Check for specific error types
+        if (response.status === 409 || data.code === '23503') {
+          throw new Error('Cannot delete this user as they have created products in the system. Please reassign or delete their products first.');
+        }
+        throw new Error(data.message || 'Failed to delete user');
+      }
+
+      // Remove the deleted user from the state
+      setUsers(prevUsers => prevUsers.filter(user => user.user_id !== userId));
+      setFilteredUsers(prevUsers => prevUsers.filter(user => user.user_id !== userId));
+      setSuccessMessage('User deleted successfully!');
+      
+      // Clear success message after a delay
+      setTimeout(() => {
+        setSuccessMessage('');
+      }, 1500);
+
+    } catch (error) {
+      console.error('Error deleting user:', error);
+      setErrorMessage(error.message || 'Failed to delete user. Please try again.');
+    } finally {
+      setIsLoading(false);
     }
   };
 
@@ -164,7 +198,7 @@ const UserManagement = () => {
     setSelectedUser(user);
     setFormData({
       username: user.username,
-      fullName: user.fullName,
+      fullName: user.full_name,
       email: user.email,
       password: '', // Don't show existing password
       role: user.role
@@ -181,25 +215,44 @@ const UserManagement = () => {
     setSuccessMessage('');
 
     try {
-      // Update user in the local state
-      const updatedUsers = users.map(user => {
-        if (user.id === selectedUser.id) {
-          return {
-            ...user,
-            username: formData.username,
-            fullName: formData.fullName,
-            email: formData.email,
-            role: formData.role,
-            // Only update password if a new one is provided
-            ...(formData.password && { password: formData.password })
-          };
-        }
-        return user;
+      const token = localStorage.getItem('token');
+      if (!token) {
+        throw new Error('No authentication token found');
+      }
+
+      const updateData = {
+        username: formData.username,
+        full_name: formData.fullName,
+        email: formData.email,
+        role: formData.role
+      };
+
+      // Only include password if it's being updated
+      if (formData.password) {
+        updateData.password = formData.password;
+      }
+
+      const response = await fetch(`http://localhost:8080/api/admin/users/${selectedUser.user_id}`, {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
+        },
+        body: JSON.stringify(updateData)
       });
 
-      setUsers(updatedUsers);
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.message || 'Failed to update user');
+      }
+
+      const updatedUser = await response.json();
+      setUsers(prevUsers => 
+        prevUsers.map(user => user.user_id === updatedUser.user_id ? updatedUser : user)
+      );
       setSuccessMessage('User updated successfully!');
       
+      // Close modal and reset form after a short delay
       setTimeout(() => {
         setShowEditModal(false);
         resetForm();
@@ -207,7 +260,7 @@ const UserManagement = () => {
 
     } catch (error) {
       console.error('Error updating user:', error);
-      setErrorMessage('Failed to update user. Please try again.');
+      setErrorMessage(error.message || 'Failed to update user. Please try again.');
     } finally {
       setIsLoading(false);
     }
@@ -215,15 +268,31 @@ const UserManagement = () => {
 
   const validateForm = (isEdit = false) => {
     const errors = {};
-    if (!formData.username.trim()) errors.username = 'Username is required';
-    if (!formData.fullName.trim()) errors.fullName = 'Full name is required';
-    if (!formData.email.trim()) errors.email = 'Email is required';
-    if (!isEdit && !formData.password.trim()) errors.password = 'Password is required';
-    if (formData.password.trim() && formData.password.length < 8) {
-        errors.password = 'Password must be at least 8 characters';
+    
+    if (!formData.username.trim()) {
+      errors.username = 'Username is required';
     }
-    if (!formData.role) errors.role = 'Role is required';
-
+    
+    if (!formData.fullName.trim()) {
+      errors.fullName = 'Full name is required';
+    }
+    
+    if (!formData.email.trim()) {
+      errors.email = 'Email is required';
+    } else if (!/\S+@\S+\.\S+/.test(formData.email)) {
+      errors.email = 'Invalid email format';
+    }
+    
+    if (!isEdit && !formData.password) {
+      errors.password = 'Password is required';
+    } else if (!isEdit && formData.password.length < 6) {
+      errors.password = 'Password must be at least 6 characters';
+    }
+    
+    if (!formData.role) {
+      errors.role = 'Role is required';
+    }
+    
     setFormErrors(errors);
     return Object.keys(errors).length === 0;
   };
@@ -237,19 +306,35 @@ const UserManagement = () => {
     setSuccessMessage('');
 
     try {
-      // For demo purposes, create a new user object
-      const newUser = {
-        id: users.length + 1,
-        username: formData.username,
-        fullName: formData.fullName,
-        email: formData.email,
-        role: formData.role,
-        createdAt: new Date(),
-        active: true
+      const token = localStorage.getItem('token');
+      if (!token) {
+        throw new Error('No authentication token found');
+      }
+
+      const userData = {
+        username: formData.username.trim(),
+        full_name: formData.fullName.trim(),
+        email: formData.email.trim(),
+        password: formData.password,
+        role: formData.role
       };
 
-      // Add the new user to the existing users array
-      setUsers(prevUsers => [...prevUsers, newUser]);
+      const response = await fetch('http://localhost:8080/api/admin/users', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
+        },
+        body: JSON.stringify(userData)
+      });
+
+      const data = await response.json();
+
+      if (!response.ok) {
+        throw new Error(data.message || 'Failed to create user');
+      }
+
+      setUsers(prevUsers => [...prevUsers, data]);
       setSuccessMessage('User created successfully!');
       
       // Close modal and reset form after a short delay
@@ -260,7 +345,7 @@ const UserManagement = () => {
 
     } catch (error) {
       console.error('Error creating user:', error);
-      setErrorMessage('Failed to create user. Please try again.');
+      setErrorMessage(error.message || 'Failed to create user. Please try again.');
     } finally {
       setIsLoading(false);
     }
@@ -294,7 +379,7 @@ const UserManagement = () => {
       <button className="action-btn edit-btn" onClick={() => handleEditUser(user)}>
             <FaEdit />
       </button>
-      <button className="action-btn delete-btn" onClick={() => handleDeleteUser(user.id)}>
+      <button className="action-btn delete-btn" onClick={() => handleDeleteUser(user.user_id)}>
               <FaTrash />
       </button>
     </div>
@@ -345,8 +430,8 @@ const UserManagement = () => {
                       <FaUserCircle />
                     </div>
                     <div className="user-details">
-                      <h3>{userData.name}</h3>
-                      <p>{userData.email}</p>
+                      <h3>{user.name}</h3>
+                      <p>{user.email}</p>
                       <span className="user-role">Admin</span>
                     </div>
                   </div>
@@ -411,19 +496,19 @@ const UserManagement = () => {
                   </thead>
                   <tbody>
                     {filteredUsers.map(user => (
-                      <tr key={user.id}>
+                      <tr key={user.user_id}>
                         <td>{user.username}</td>
-                        <td>{user.fullName}</td>
+                        <td>{user.full_name}</td>
                         <td>{user.email}</td>
                         <td>
                           <span className={`role-badge ${user.role.toLowerCase()}`}>
                             {user.role}
                           </span>
                         </td>
-                        <td>{formatDate(user.createdAt)}</td>
+                        <td>{formatDate(user.created_at)}</td>
                         <td>
-                          <span className={`status-badge ${user.active ? 'active' : 'inactive'}`}>
-                            {user.active ? 'Active' : 'Inactive'}
+                          <span className="status-badge active">
+                            Active
                           </span>
                         </td>
                         <td>

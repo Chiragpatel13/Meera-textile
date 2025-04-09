@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { useAuth } from '../context/AuthContext';
 import { 
   FaShoppingCart, 
   FaUser, 
@@ -36,6 +37,7 @@ import { AiFillIdcard } from 'react-icons/ai';
 
 const POSInterface = () => {
   const navigate = useNavigate();
+  const { user } = useAuth();
   const [customers, setCustomers] = useState([]);
   const [skus, setSkus] = useState([]);
   const [selectedCustomer, setSelectedCustomer] = useState('');
@@ -53,8 +55,9 @@ const POSInterface = () => {
   
   // Initialize userData with default values to prevent null errors
   const [userData, setUserData] = useState({
-    name: 'User',
-    email: 'user@example.com'
+    name: user?.full_name || user?.username || '',
+    email: user?.email || '',
+    role: user?.role || ''
   });
   
   // Form states
@@ -82,13 +85,9 @@ const POSInterface = () => {
       setLastSavedOrder(savedOrders[0]); // Set the most recent order
     }
     
-    // Mock user data - in a real app, you would fetch this from an API
-    // This ensures userData is not null when accessed
-    setUserData({
-      name: 'Store Admin',
-      email: 'admin@storemanager.com'
-    });
-  }, []);
+    // Fetch user data
+    fetchUserData();
+  }, [user]);
 
   const fetchCustomers = async () => {
     setIsLoading(true);
@@ -138,6 +137,40 @@ const POSInterface = () => {
     } catch (error) {
       console.error('Error fetching SKUs:', error);
       showNotification('Failed to load inventory items', 'error');
+    }
+  };
+
+  const fetchUserData = async () => {
+    try {
+      const token = localStorage.getItem('token');
+      if (!token) {
+        navigate('/login');
+        return;
+      }
+
+      const response = await fetch('http://localhost:8080/api/auth/profile', {
+        headers: {
+          'Authorization': `Bearer ${token}`
+        }
+      });
+
+      if (!response.ok) {
+        throw new Error('Failed to fetch user data');
+      }
+
+      const data = await response.json();
+      setUserData({
+        name: data.full_name || data.username,
+        email: data.email,
+        role: data.role
+      });
+    } catch (error) {
+      console.error('Error fetching user data:', error);
+      setUserData({
+        name: user?.full_name || user?.username || 'User',
+        email: user?.email || '',
+        role: user?.role || ''
+      });
     }
   };
 

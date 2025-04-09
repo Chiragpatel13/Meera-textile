@@ -15,20 +15,19 @@ const Login = () => {
   const navigate = useNavigate();
   const { login: authLogin } = useAuth();
 
-  // Auto-navigate to dashboard on component mount
   useEffect(() => {
     // Check if already logged in
     const token = localStorage.getItem('token');
     if (token) {
       navigate('/dashboard', { replace: true });
     }
-    // Simulate page loading
+    // Remove loading after a short delay
     const timer = setTimeout(() => {
       setPageLoading(false);
     }, 1000);
     
     return () => clearTimeout(timer);
-  }, [navigate, authLogin]);
+  }, [navigate]);
 
   const handleChange = (e) => {
     const { name, value } = e.target;
@@ -64,22 +63,23 @@ const Login = () => {
     }
     
     setIsSubmitting(true);
+    setError('');
     
-    // For demo purposes, just login directly
-    setTimeout(() => {
-      authLogin({
-        role: 'STORE_MANAGER',
-        username: credentials.username || 'admin'
-      });
+    try {
+      const response = await login(credentials);
       
-      localStorage.setItem('token', 'bypass-auth-token');
-      localStorage.setItem('userName', credentials.username || 'Admin User');
-      localStorage.setItem('userEmail', `${credentials.username}@miratextile.com`);
-      localStorage.setItem('userRole', 'STORE_MANAGER');
+      // Store user info
+      authLogin(response.user);
+      localStorage.setItem('userName', response.user.full_name);
+      localStorage.setItem('userEmail', response.user.email);
+      localStorage.setItem('userRole', response.user.role);
       
-      setIsSubmitting(false);
       navigate('/dashboard', { replace: true });
-    }, 800); // Simulating API call delay
+    } catch (error) {
+      setError(error.message || 'Invalid credentials');
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
   if (pageLoading) {

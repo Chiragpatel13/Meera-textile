@@ -29,6 +29,7 @@ import '../styles/dashboard.css';
 import '../styles/customer.css';
 import '../styles/pos.css';
 import LoadingAnimation from '../components/LoadingAnimation';
+import { useAuth } from '../context/AuthContext';
 
 // API Configuration
 const API_BASE_URL = process.env.REACT_APP_API_BASE_URL || 'http://localhost:5000/api';
@@ -43,6 +44,7 @@ const API_CONFIG = {
 
 const CustomerManagement = () => {
   const navigate = useNavigate();
+  const { user } = useAuth();
   const [customers, setCustomers] = useState([]);
   const [filteredCustomers, setFilteredCustomers] = useState([]);
   const [searchTerm, setSearchTerm] = useState('');
@@ -56,8 +58,9 @@ const CustomerManagement = () => {
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
   const [userMenuOpen, setUserMenuOpen] = useState(false);
   const [userData, setUserData] = useState({
-    name: 'Admin User',
-    email: 'admin@miratextile.com'
+    name: user?.full_name || user?.username || '',
+    email: user?.email || '',
+    role: user?.role || ''
   });
   
   // Form states
@@ -78,7 +81,8 @@ const CustomerManagement = () => {
   
   useEffect(() => {
     fetchCustomers();
-  }, []);
+    fetchUserData();
+  }, [user]);
   
   useEffect(() => {
     filterCustomers();
@@ -385,6 +389,40 @@ const CustomerManagement = () => {
     if (ratio >= 0.8) return 'credit-low';
     if (ratio >= 0.5) return 'credit-moderate';
     return 'credit-good';
+  };
+  
+  const fetchUserData = async () => {
+    try {
+      const token = localStorage.getItem('token');
+      if (!token) {
+        navigate('/login');
+        return;
+      }
+
+      const response = await fetch('http://localhost:8080/api/auth/profile', {
+        headers: {
+          'Authorization': `Bearer ${token}`
+        }
+      });
+
+      if (!response.ok) {
+        throw new Error('Failed to fetch user data');
+      }
+
+      const data = await response.json();
+      setUserData({
+        name: data.full_name || data.username,
+        email: data.email,
+        role: data.role
+      });
+    } catch (error) {
+      console.error('Error fetching user data:', error);
+      setUserData({
+        name: user?.full_name || user?.username || 'User',
+        email: user?.email || '',
+        role: user?.role || ''
+      });
+    }
   };
   
   return (
