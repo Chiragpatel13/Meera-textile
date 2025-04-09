@@ -19,9 +19,10 @@ The Clothing Management And Distribution System is designed for small to medium-
 
 ## 🛠️ Tech Stack
 
-- 🖥️ **Frontend**: ReactJS
-- ⚙️ **Backend**: Spring Boot MVC
+- 🖥️ **Frontend**: ReactJS with modern UI components
+- ⚙️ **Backend**: Node.js with Express
 - 🗄️ **Database**: PostgreSQL
+- 🔐 **Authentication**: JWT-based authentication
 
 ## 📥 Installation
 
@@ -33,21 +34,32 @@ git clone https://github.com/yourusername/clothing-management-system.git
 cd clothing-management-system
 
 # Install backend dependencies
-./mvnw install
+cd BACKEND
+npm install
 
 # Install frontend dependencies
-cd frontend
+cd ../FRONTEND
 npm install
 ```
 
 ## 🚀 Running the Application
 
+You can use the provided PowerShell script to start both servers:
+
+```bash
+# Start both frontend and backend servers
+./start-servers.ps1
+```
+
+Or run them separately:
+
 ```bash
 # Start the backend server
-./mvnw spring-boot:run
+cd BACKEND
+npm start
 
 # In a separate terminal, start the frontend
-cd frontend
+cd FRONTEND
 npm start
 ```
 
@@ -57,6 +69,8 @@ npm start
 - Windows or macOS operating system
 - Internet connectivity for payment processing
 - Touch screen compatibility (recommended but not required)
+- Node.js (v14 or higher)
+- PostgreSQL (v12 or higher)
 
 ## 👤 User Roles
 
@@ -87,8 +101,8 @@ The system is designed for:
 
 ## 🏢 Client
 
-This project is being developed for Mira Textile.
+This project is being developed for Meera Textile.
 
 ## 📞 Contact
 
-Project Link: [https://github.com/Bhavya-Sonigra/clothing-management-system](https://github.com/yourusername/clothing-management-system)
+Project Link: [https://github.com/Bhavya-Sonigra/clothing-management-system](https://github.com/Bhavya-Sonigra/clothing-management-system)
