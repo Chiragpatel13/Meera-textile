@@ -1,4 +1,4 @@
-// src/pages/InventoryManagement.jsx
+w// src/pages/InventoryManagement.jsx
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import Navbar from '../components/Navbar';
@@ -6,7 +6,8 @@ import Modal from '../components/Modal';
 import FormInput from '../components/FormInput';
 import '../styles/InventoryManagement.css';
 
-const API_BASE_URL = 'http://localhost:8082/api';
+// Use correct backend port and path
+const API_BASE_URL = 'http://localhost:8080/api';
 
 const InventoryManagement = () => {
   const navigate = useNavigate();
@@ -27,7 +28,7 @@ const InventoryManagement = () => {
     color: ''
   });
 
-  // Fetch products from the API
+  // Fetch products from the API (real-time)
   const fetchProducts = async () => {
     setIsLoading(true);
     setError(null);
@@ -37,33 +38,35 @@ const InventoryManagement = () => {
         navigate('/Login');
         return;
       }
-
-      const response = await fetch(`${API_BASE_URL}/admin/products`, {
+      // Use correct endpoint
+      const response = await fetch(`${API_BASE_URL}/products`, {
         method: 'GET',
         headers: {
           'Authorization': `Bearer ${token}`,
           'Content-Type': 'application/json'
         }
       });
-
       if (response.status === 401 || response.status === 403) {
         navigate('/Login');
         return;
       }
-
       if (!response.ok) {
         throw new Error('Failed to fetch products');
       }
-
       const data = await response.json();
-      if (data.success) {
+      // Defensive: handle both array or wrapped response
+      if (Array.isArray(data)) {
+        setProducts(data);
+      } else if (data.data && Array.isArray(data.data)) {
         setProducts(data.data);
       } else {
-        throw new Error(data.message || 'Failed to fetch products');
+        console.error('Products API did not return an array:', data);
+        setProducts([]);
       }
     } catch (error) {
       console.error('Error fetching products:', error);
       setError('Failed to load products. Please try again later.');
+      setProducts([]);
     } finally {
       setIsLoading(false);
     }
@@ -119,49 +122,47 @@ const InventoryManagement = () => {
 
   const handleSubmit = async (e) => {
     e.preventDefault();
-    
     try {
       const token = localStorage.getItem('token');
       if (!token) {
         navigate('/Login');
         return;
       }
-
+      // Use correct endpoint and map fields for backend
+      const payload = {
+        sku_code: formData.sku,
+        fabric_type: formData.name,
+        color: formData.color,
+        pattern: formData.category, // or another field if pattern is separate
+        price_per_meter: parseFloat(formData.price),
+        // Add other fields if backend expects them
+      };
       const url = isEditMode 
-        ? `${API_BASE_URL}/admin/products/${currentProduct.id}`
-        : `${API_BASE_URL}/admin/products`;
-      
+        ? `${API_BASE_URL}/products/${currentProduct.id}`
+        : `${API_BASE_URL}/products`;
       const method = isEditMode ? 'PUT' : 'POST';
-      
       const response = await fetch(url, {
         method: method,
         headers: {
           'Authorization': `Bearer ${token}`,
           'Content-Type': 'application/json'
         },
-        body: JSON.stringify(formData)
+        body: JSON.stringify(payload)
       });
-
       if (response.status === 401 || response.status === 403) {
         navigate('/Login');
         return;
       }
-
       const data = await response.json();
-      
       if (data.success) {
-        // Refresh the product list
         fetchProducts();
-        // Close the modal and reset form
-    setIsModalOpen(false);
+        setIsModalOpen(false);
         resetForm();
-        alert(isEditMode ? 'Product updated successfully!' : 'Product added successfully!');
       } else {
-        throw new Error(data.message || 'Failed to save product');
+        setError(data.message || 'Failed to save product');
       }
     } catch (error) {
-      console.error('Error saving product:', error);
-      alert(`Error: ${error.message}`);
+      setError('Failed to save product. Please try again later.');
     }
   };
 
@@ -177,7 +178,7 @@ const InventoryManagement = () => {
         return;
       }
 
-      const response = await fetch(`${API_BASE_URL}/admin/products/${id}`, {
+      const response = await fetch(`${API_BASE_URL}/products/${id}`, {
         method: 'DELETE',
         headers: {
           'Authorization': `Bearer ${token}`,
@@ -200,8 +201,7 @@ const InventoryManagement = () => {
         throw new Error(data.message || 'Failed to delete product');
       }
     } catch (error) {
-      console.error('Error deleting product:', error);
-      alert(`Error: ${error.message}`);
+      setError('Failed to delete product. Please try again later.');
     }
   };
 

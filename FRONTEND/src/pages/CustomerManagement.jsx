@@ -32,15 +32,7 @@ import LoadingAnimation from '../components/LoadingAnimation';
 import { useAuth } from '../context/AuthContext';
 
 // API Configuration
-const API_BASE_URL = process.env.REACT_APP_API_BASE_URL || 'http://localhost:5000/api';
-const API_CONFIG = {
-  ENDPOINTS: {
-    AUTH: {
-      LOGOUT: '/auth/logout'
-    }
-  },
-  TOKEN_KEY: 'auth_token'
-};
+const API_BASE_URL = 'http://localhost:8080/api';
 
 const CustomerManagement = () => {
   const navigate = useNavigate();
@@ -67,7 +59,6 @@ const CustomerManagement = () => {
   const [formData, setFormData] = useState({
     name: '',
     contact_info: '',
-    phone: '',
     credit_limit: ''
   });
   
@@ -88,24 +79,39 @@ const CustomerManagement = () => {
     filterCustomers();
   }, [searchTerm, customers]);
   
+  // Fetch customers from backend (not dummy data)
   const fetchCustomers = async () => {
     setIsLoading(true);
     try {
-      // For demo purposes, let's add some fake data
-      const fakeCustomers = [
-        { id: 1, name: 'John Doe', contact_info: 'john@example.com', phone: '9876543210', credit_limit: 5000, credit_used: 1200, last_purchase: '2024-05-12', status: 'Active' },
-        { id: 2, name: 'Jane Smith', contact_info: 'jane@example.com', phone: '8765432109', credit_limit: 10000, credit_used: 7500, last_purchase: '2024-05-10', status: 'Active' },
-        { id: 3, name: 'Bob Johnson', contact_info: 'bob@example.com', phone: '7654321098', credit_limit: 7500, credit_used: 1500, last_purchase: '2024-05-05', status: 'Active' },
-        { id: 4, name: 'Alice Brown', contact_info: 'alice@example.com', phone: '6543210987', credit_limit: 12000, credit_used: 3000, last_purchase: '2024-04-28', status: 'Inactive' },
-        { id: 5, name: 'Charlie Davis', contact_info: 'charlie@example.com', phone: '5432109876', credit_limit: 2500, credit_used: 0, last_purchase: '2024-04-20', status: 'Active' },
-        { id: 6, name: 'Eva White', contact_info: 'eva@example.com', phone: '4321098765', credit_limit: 8000, credit_used: 4500, last_purchase: '2024-05-15', status: 'Active' },
-        { id: 7, name: 'Frank Miller', contact_info: 'frank@example.com', phone: '3210987654', credit_limit: 15000, credit_used: 12000, last_purchase: '2024-05-01', status: 'Active' },
-        { id: 8, name: 'Grace Lee', contact_info: 'grace@example.com', phone: '2109876543', credit_limit: 3000, credit_used: 3000, last_purchase: '2024-04-15', status: 'Blocked' }
-      ];
-      setCustomers(fakeCustomers);
-      setFilteredCustomers(fakeCustomers);
+      const token = localStorage.getItem('token');
+      const response = await fetch(`${API_BASE_URL}/customers`, {
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json'
+        }
+      });
+      if (!response.ok) throw new Error('Failed to fetch customers');
+      const data = await response.json();
+      if (Array.isArray(data)) {
+        // Defensive: ensure id and status are present
+        const fixed = data.map(c => ({
+          ...c,
+          id: c.id ?? c.customer_id ?? null,
+          status: c.status ?? c.customer_status ?? 'active'
+        }));
+        setCustomers(fixed);
+      } else if (data.data && Array.isArray(data.data)) {
+        const fixed = data.data.map(c => ({
+          ...c,
+          id: c.id ?? c.customer_id ?? null,
+          status: c.status ?? c.customer_status ?? 'active'
+        }));
+        setCustomers(fixed);
+      } else {
+        setCustomers([]);
+      }
     } catch (error) {
-      console.error('Error fetching customers:', error);
+      setCustomers([]);
     } finally {
       setIsLoading(false);
     }
@@ -150,8 +156,7 @@ const CustomerManagement = () => {
     const filtered = customers.filter(
       customer => 
         customer.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        customer.contact_info.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        customer.phone.toLowerCase().includes(searchTerm.toLowerCase())
+        customer.contact_info.toLowerCase().includes(searchTerm.toLowerCase())
     );
     
     setFilteredCustomers(filtered);
@@ -167,7 +172,6 @@ const CustomerManagement = () => {
     setFormData({
       name: customer.name,
       contact_info: customer.contact_info,
-      phone: customer.phone,
       credit_limit: customer.credit_limit.toString()
     });
     setOpenAddEditModal(true);
@@ -189,7 +193,6 @@ const CustomerManagement = () => {
     setFormData({
       name: '',
       contact_info: '',
-      phone: '',
       credit_limit: ''
     });
     setFormErrors({});
@@ -207,7 +210,6 @@ const CustomerManagement = () => {
     const errors = {};
     if (!formData.name) errors.name = 'Name is required';
     if (!formData.contact_info) errors.contact_info = 'Contact info is required';
-    if (!formData.phone) errors.phone = 'Phone number is required';
     if (!formData.credit_limit || isNaN(formData.credit_limit)) errors.credit_limit = 'Valid credit limit is required';
     
     setFormErrors(errors);
@@ -228,17 +230,26 @@ const CustomerManagement = () => {
     
     const customerData = {
       ...formData,
-          credit_limit: parseFloat(formData.credit_limit)
-        };
-        
+      credit_limit: parseFloat(formData.credit_limit)
+    };
+
     // If editing an existing customer
     if (selectedCustomer) {
       try {
-        // In a real app, this would be an API call to update
-        const updatedCustomers = customers.map(c => 
-          c.id === selectedCustomer.id ? { ...c, ...customerData } : c
-        );
-        setCustomers(updatedCustomers);
+        const token = localStorage.getItem('token');
+        const response = await fetch(`${API_BASE_URL}/customers/${selectedCustomer.id}`, {
+          method: 'PUT',
+          headers: {
+            'Authorization': `Bearer ${token}`,
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify(customerData),
+        });
+        if (!response.ok) {
+          throw new Error('Failed to update customer');
+        }
+        // Always refresh from backend after update
+        await fetchCustomers();
         setOpenAddEditModal(false);
       } catch (error) {
         console.error('Error updating customer:', error);
@@ -247,17 +258,21 @@ const CustomerManagement = () => {
     // If adding a new customer
     else {
       try {
-        // In a real app, this would be an API call to create
-        const newCustomer = {
-          id: customers.length + 1,
-          ...customerData,
-          credit_used: 0,
-          last_purchase: 'Never',
-          status: 'Active'
-        };
-        setCustomers([...customers, newCustomer]);
-      setOpenAddEditModal(false);
-    } catch (error) {
+        const token = localStorage.getItem('token');
+        const response = await fetch(`${API_BASE_URL}/customers`, {
+          method: 'POST',
+          headers: {
+            'Authorization': `Bearer ${token}`,
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify(customerData),
+        });
+        if (!response.ok) {
+          throw new Error('Failed to add customer');
+        }
+        await fetchCustomers();
+        setOpenAddEditModal(false);
+      } catch (error) {
         console.error('Error adding customer:', error);
       }
     }
@@ -283,11 +298,22 @@ const CustomerManagement = () => {
   const handleDeleteCustomer = async (customerId) => {
     if (window.confirm('Are you sure you want to delete this customer?')) {
       try {
-        // In a real app, this would be an API call
-      const updatedCustomers = customers.filter(c => c.id !== customerId);
-      setCustomers(updatedCustomers);
-    } catch (error) {
-      console.error('Error deleting customer:', error);
+        const token = localStorage.getItem('token');
+        const response = await fetch(`${API_BASE_URL}/customers/${customerId}`, {
+          method: 'DELETE',
+          headers: {
+            'Authorization': `Bearer ${token}`,
+            'Content-Type': 'application/json',
+          },
+        });
+        if (!response.ok) {
+          throw new Error('Failed to delete customer');
+        }
+        // Refresh customer list
+        fetchCustomers();
+      } catch (error) {
+        console.error('Error deleting customer:', error);
+        alert('Failed to delete customer.');
       }
     }
   };
@@ -344,10 +370,10 @@ const CustomerManagement = () => {
     if (window.confirm("Are you sure you want to logout?")) {
       try {
         // Optional: Try to call logout API endpoint
-        fetch(`${API_BASE_URL}${API_CONFIG.ENDPOINTS.AUTH.LOGOUT}`, {
+        fetch(`${API_BASE_URL}/auth/logout`, {
           method: 'POST',
           headers: {
-            'Authorization': `Bearer ${localStorage.getItem(API_CONFIG.TOKEN_KEY)}`
+            'Authorization': `Bearer ${localStorage.getItem('token')}`
           }
         }).catch(error => {
           console.log('Logout API error (continuing with local logout):', error);
@@ -532,7 +558,6 @@ const CustomerManagement = () => {
                       <th>ID</th>
                       <th>Name</th>
                       <th>Contact</th>
-                      <th>Phone</th>
                       <th>Credit Limit</th>
                       <th>Last Purchase</th>
                       <th>Status</th>
@@ -545,7 +570,6 @@ const CustomerManagement = () => {
                         <td>#{customer.id}</td>
                         <td>{customer.name}</td>
                         <td>{customer.contact_info}</td>
-                        <td>{customer.phone}</td>
                         <td>
                           <span className={`customer-credit-status ${getCreditStatus(customer.credit_used, customer.credit_limit)}`}>
                             ₹{customer.credit_used} / ₹{customer.credit_limit}
@@ -571,7 +595,7 @@ const CustomerManagement = () => {
                             <button className="action-btn log-btn" onClick={() => handleAddInteraction(customer)}>
                               <FaPhone />
                             </button>
-                </div>
+                          </div>
                         </td>
                       </tr>
                     ))}
@@ -596,10 +620,10 @@ const CustomerManagement = () => {
                 <label>Name</label>
                 <input
                   type="text"
-              name="name"
+                  name="name"
                   className="form-control"
-              value={formData.name}
-              onChange={handleFormChange}
+                  value={formData.name}
+                  onChange={handleFormChange}
                   placeholder="Customer full name"
                 />
                 {formErrors.name && <div className="form-error">{formErrors.name}</div>}
@@ -609,36 +633,23 @@ const CustomerManagement = () => {
                 <label>Email Address</label>
                 <input
                   type="email"
-              name="contact_info"
+                  name="contact_info"
                   className="form-control"
-              value={formData.contact_info}
-              onChange={handleFormChange}
+                  value={formData.contact_info}
+                  onChange={handleFormChange}
                   placeholder="Email address"
                 />
                 {formErrors.contact_info && <div className="form-error">{formErrors.contact_info}</div>}
               </div>
               
               <div className="form-group">
-                <label>Phone Number</label>
-                <input
-                  type="text"
-                  name="phone"
-                  className="form-control"
-                  value={formData.phone || ''}
-                  onChange={handleFormChange}
-                  placeholder="Phone number"
-                />
-                {formErrors.phone && <div className="form-error">{formErrors.phone}</div>}
-              </div>
-              
-              <div className="form-group">
                 <label>Credit Limit (₹)</label>
                 <input
                   type="number"
-              name="credit_limit"
+                  name="credit_limit"
                   className="form-control"
-              value={formData.credit_limit}
-              onChange={handleFormChange}
+                  value={formData.credit_limit}
+                  onChange={handleFormChange}
                   placeholder="Enter credit limit"
                 />
                 {formErrors.credit_limit && <div className="form-error">{formErrors.credit_limit}</div>}
@@ -664,10 +675,10 @@ const CustomerManagement = () => {
               <div className="form-group">
                 <label>Interaction Type</label>
                 <select
-                name="interaction_type"
+                  name="interaction_type"
                   className="form-control"
-                value={interactionData.interaction_type}
-                onChange={handleInteractionChange}
+                  value={interactionData.interaction_type}
+                  onChange={handleInteractionChange}
                 >
                   <option value="">Select interaction type</option>
                   <option value="Phone Call">Phone Call</option>
@@ -682,10 +693,10 @@ const CustomerManagement = () => {
               <div className="form-group">
                 <label>Details</label>
                 <textarea
-              name="details"
+                  name="details"
                   className="form-control"
-              value={interactionData.details}
-              onChange={handleInteractionChange}
+                  value={interactionData.details}
+                  onChange={handleInteractionChange}
                   rows="4"
                   placeholder="Enter interaction details"
                 ></textarea>
@@ -717,10 +728,10 @@ const CustomerManagement = () => {
                   <div className={`tab ${tabValue === 1 ? 'active' : ''}`} onClick={() => handleTabChange(1)}>
                     Interactions
                   </div>
-          </div>
+                </div>
                 
                 <div className="tab-content">
-          {tabValue === 0 && (
+                  {tabValue === 0 && (
                     <div className="customer-profile">
                       <div className="form-group">
                         <div className="customer-details-label">Customer ID</div>
@@ -735,11 +746,6 @@ const CustomerManagement = () => {
                       <div className="form-group">
                         <div className="customer-details-label">Email Address</div>
                         <div className="customer-details-value">{selectedCustomer.contact_info}</div>
-                      </div>
-                      
-                      <div className="form-group">
-                        <div className="customer-details-label">Phone Number</div>
-                        <div className="customer-details-value">{selectedCustomer.phone}</div>
                       </div>
                       
                       <div className="form-group">
@@ -765,9 +771,9 @@ const CustomerManagement = () => {
                         </div>
                       </div>
                     </div>
-          )}
-          
-          {tabValue === 1 && (
+                  )}
+                  
+                  {tabValue === 1 && (
                     <div className="customer-interactions">
                       <div className="form-group">
                         <button className="add-customer-btn" onClick={() => handleAddInteraction(selectedCustomer)}>

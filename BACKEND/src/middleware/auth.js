@@ -18,7 +18,8 @@ const auth = async (req, res, next) => {
     // Get token from header
     const token = req.header('Authorization')?.replace('Bearer ', '');
     
-    if (!token) {
+    // Defensive: reject empty, null, or undefined tokens
+    if (!token || token === 'null' || token === 'undefined') {
       return res.status(401).json({ message: 'No authentication token provided' });
     }
     
@@ -65,17 +66,17 @@ const auth = async (req, res, next) => {
 const authorize = (...allowedRoles) => {
   return (req, res, next) => {
     const userRole = req.user?.role;
-    
     if (!userRole) {
       return res.status(401).json({ message: 'Authentication required' });
     }
-    
+    // ADMIN always has access
+    if (userRole === 'ADMIN') {
+      return next();
+    }
     // Get all roles this user can access based on hierarchy
     const accessibleRoles = ROLE_HIERARCHY[userRole] || [];
-    
     // Check if user has permission for any of the allowed roles
     const hasPermission = allowedRoles.some(role => accessibleRoles.includes(role));
-    
     if (!hasPermission) {
       return res.status(403).json({ 
         message: 'Access denied. Insufficient permissions.',
@@ -83,7 +84,6 @@ const authorize = (...allowedRoles) => {
         userRole: userRole
       });
     }
-    
     next();
   };
 };

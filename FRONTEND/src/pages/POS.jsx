@@ -39,7 +39,7 @@ const POSInterface = () => {
   const navigate = useNavigate();
   const { user } = useAuth();
   const [customers, setCustomers] = useState([]);
-  const [skus, setSkus] = useState([]);
+  const [skus, setSkus] = useState([]); // Defensive: always initialize as array
   const [selectedCustomer, setSelectedCustomer] = useState('');
   const [showAddCustomerModal, setShowAddCustomerModal] = useState(false);
   const [activePaymentTab, setActivePaymentTab] = useState('cash');
@@ -65,7 +65,6 @@ const POSInterface = () => {
   const [discount, setDiscount] = useState(0);
   const [tax, setTax] = useState(0);
   const [amountReceived, setAmountReceived] = useState(0);
-  const [creditPeriodDays, setCreditPeriodDays] = useState(30);
   
   // New customer form
   const [newCustomer, setNewCustomer] = useState({
@@ -121,27 +120,46 @@ const POSInterface = () => {
     }
   };
 
+  // Map backend SKU/product to POS display fields
+  const mapSkuToDisplay = (item) => ({
+    sku_id: item.sku_id,
+    sku_code: item.sku_code,
+    name: `${item.sku_code} - ${item.fabric_type} (${item.pattern}, ${item.color})`, // Show SKU code and descriptive details
+    category: item.pattern,
+    price: item.price_per_meter,
+    quantity: item.total_quantity,
+    color: item.color,
+  });
+
+  // Fetch SKUs from the API (real-time, database-driven)
   const fetchSKUs = async () => {
+    setIsLoading(true);
     try {
-      // Simulate API response if backend isn't ready
-      setTimeout(() => {
-        const mockSKUs = [
-          { id: 1, code: 'SKU001', name: 'Product 1', price: 100, total_quantity: 50 },
-          { id: 2, code: 'SKU002', name: 'Product 2', price: 200, total_quantity: 25 },
-          { id: 3, code: 'SKU003', name: 'Product 3', price: 150, total_quantity: 30 }
-        ];
-        setSkus(mockSKUs);
-      }, 500);
-      
-      // Uncomment this for real API
-      /*
-      const response = await fetch('/api/skus');
+      const token = localStorage.getItem('token');
+      const response = await fetch('http://localhost:8080/api/products', {
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json'
+        }
+      });
+      if (!response.ok) {
+        throw new Error('Failed to fetch SKUs');
+      }
       const data = await response.json();
-      setSkus(data);
-      */
+      let products = [];
+      if (Array.isArray(data)) {
+        products = data;
+      } else if (data.data && Array.isArray(data.data)) {
+        products = data.data;
+      }
+      // Map backend fields to POS display
+      const mapped = products.map(mapSkuToDisplay);
+      setSkus(mapped);
     } catch (error) {
       console.error('Error fetching SKUs:', error);
-      showNotification('Failed to load inventory items', 'error');
+      setSkus([]);
+    } finally {
+      setIsLoading(false);
     }
   };
 
@@ -202,7 +220,7 @@ const POSInterface = () => {
     
     // If SKU changed or quantity changed, recalculate subtotal
     if (field === 'sku_id' || field === 'quantity') {
-      const selectedSku = skus.find(sku => sku.id === parseInt(updatedItems[index].sku_id));
+      const selectedSku = skus.find(sku => sku.sku_id === parseInt(updatedItems[index].sku_id));
       const price = selectedSku ? selectedSku.price : 0;
       updatedItems[index].subtotal = price * updatedItems[index].quantity;
     }
@@ -262,28 +280,32 @@ const POSInterface = () => {
 
     try {
       const token = localStorage.getItem('token');
+      const payload = {
+        name: newCustomer.name,
+        contact_info: newCustomer.contact_info,
+        credit_limit: Number(newCustomer.credit_limit)
+      };
       const response = await fetch('http://localhost:8080/api/customers', {
         method: 'POST',
         headers: {
           'Authorization': `Bearer ${token}`,
           'Content-Type': 'application/json'
         },
-        body: JSON.stringify(newCustomer)
+        body: JSON.stringify(payload)
       });
 
       if (!response.ok) {
-        const error = await response.json();
-        throw new Error(error.message || 'Failed to add customer');
+        let errorMsg = 'Failed to add customer';
+        try {
+          const error = await response.json();
+          errorMsg = error.message || errorMsg;
+        } catch {}
+        throw new Error(errorMsg);
       }
 
-      const data = await response.json();
-      
-      // Add new customer to the list
-      setCustomers(prev => [...prev, data]);
-      
-      // Select the new customer
-      setSelectedCustomer(data.customer_id);
-      
+      // Success: always refresh from backend
+      await fetchCustomers();
+
       // Reset form and close modal
       setNewCustomer({
         name: '',
@@ -291,8 +313,6 @@ const POSInterface = () => {
         credit_limit: 500
       });
       setErrors({});
-      setShowAddCustomerModal(false);
-      
       showNotification('Customer added successfully', 'success');
     } catch (error) {
       console.error('Error adding customer:', error);
@@ -369,16 +389,18 @@ const POSInterface = () => {
     });
     
     const itemsHtml = order.items.map(item => {
-      const sku = skus.find(s => s.id === parseInt(item.sku_id));
+      const sku = skus.find(s => s.sku_id === parseInt(item.sku_id));
       const name = sku ? sku.name : 'Unknown Product';
       const price = sku ? sku.price : 0;
+      const priceNum = Number(price) || 0;
+      const subtotalNum = Number(item.subtotal) || 0;
       
       return `
         <tr>
           <td>${name}</td>
           <td style="text-align: center;">${item.quantity}</td>
-          <td style="text-align: right;">₹${price.toFixed(2)}</td>
-          <td style="text-align: right;">₹${item.subtotal.toFixed(2)}</td>
+          <td style="text-align: right;">₹${priceNum.toFixed(2)}</td>
+          <td style="text-align: right;">₹${subtotalNum.toFixed(2)}</td>
         </tr>
       `;
     }).join('');
@@ -484,8 +506,7 @@ const POSInterface = () => {
               <span>${
                 order.paymentMethod === 'cash' ? 'Cash' :
                 order.paymentMethod === 'card' ? 'Card' :
-                order.paymentMethod === 'qr' ? 'QR/UPI' :
-                'Credit'
+                order.paymentMethod === 'qr' ? 'QR/UPI' : ''
               }</span>
             </div>
           </div>
@@ -558,12 +579,12 @@ const POSInterface = () => {
       const updatedSkus = [...skus];
       
       order.items.forEach(item => {
-        const skuIndex = updatedSkus.findIndex(s => s.id === parseInt(item.sku_id));
+        const skuIndex = updatedSkus.findIndex(s => s.sku_id === parseInt(item.sku_id));
         if (skuIndex !== -1) {
           // Reduce quantity in stock
           updatedSkus[skuIndex] = {
             ...updatedSkus[skuIndex],
-            total_quantity: Math.max(0, updatedSkus[skuIndex].total_quantity - item.quantity)
+            quantity: Math.max(0, updatedSkus[skuIndex].quantity - item.quantity)
           };
         }
       });
@@ -654,70 +675,92 @@ const POSInterface = () => {
     navigate('/ResetPassword');
   };
 
-  // Show notification message
+  // Enhanced error handling for notification toast
+  // Add support for dismissing the toast and auto-hiding on error
   const showNotification = (message, type = 'success') => {
     setNotification({ show: true, message, type });
-    
-    // Auto-hide after 3 seconds
+    // Auto-hide after 3 seconds for success, 5 seconds for error
     setTimeout(() => {
       setNotification({ show: false, message: '', type: '' });
-    }, 3000);
+    }, type === 'error' ? 5000 : 3000);
   };
+
+  const dismissNotification = () => setNotification({ show: false, message: '', type: '' });
+
+  // Show notification message
+  // ...
 
   // Updated submitOrder function to use new features
   const submitOrder = async () => {
+    console.log('submitOrder called');
+    console.log('selectedCustomer:', selectedCustomer);
+    console.log('orderItems:', orderItems);
+    console.log('totals:', typeof totals, totals);
+    console.log('activePaymentTab:', activePaymentTab);
+    console.log('amountReceived:', amountReceived);
+    // Ensure totals is initialized here
+    const computedTotals = calculateTotals();
+    console.log('computedTotals:', computedTotals);
     if (!selectedCustomer || orderItems.some(item => !item.sku_id)) {
       showNotification('Please select a customer and add at least one item', 'error');
       return;
     }
-    
-    const totals = calculateTotals();
-    
     try {
-      // Create order object
-      const order = {
-        customerId: selectedCustomer,
-        items: orderItems.filter(item => item.sku_id),
-        paymentMethod: activePaymentTab,
-        discount,
-        tax,
-        amountReceived,
-        creditPeriodDays,
-        totals
+      // Create order object for backend
+      const orderPayload = {
+        customer_id: parseInt(selectedCustomer),
+        total_amount: computedTotals.subtotal,
+        discount_perc: discount,
+        tax_amount: computedTotals.tax,
+        net_amount: computedTotals.total,
+        order_items: orderItems.filter(item => item.sku_id).map(item => {
+          const sku = skus.find(sku => sku.sku_id === parseInt(item.sku_id));
+          const price = sku ? parseFloat(sku.price) : 0;
+          const quantity = parseFloat(item.quantity) || 0;
+          return {
+            sku_id: parseInt(item.sku_id),
+            quantity,
+            price,
+            subtotal: price * quantity
+          };
+        })
       };
-      
-      // First save locally in case network fails
-      const orderId = saveOrderToLocalStorage(order);
-      
-      if (!orderId) {
-        return; // Stop if local save failed
+      console.log('orderPayload:', orderPayload);
+
+      const token = localStorage.getItem('token');
+      const response = await fetch('http://localhost:8080/api/orders', {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify(orderPayload)
+      });
+      console.log('response status:', response.status);
+      if (!response.ok) {
+        let errorMsg = 'Order failed to save to server';
+        try {
+          const errorJson = await response.json();
+          errorMsg = errorJson.error || errorJson.message || errorMsg;
+        } catch (err) {
+          // fallback if not JSON
+          errorMsg = await response.text();
+        }
+        console.error('Order failed to save to server:', errorMsg);
+        throw new Error(errorMsg);
       }
-      
-      // Sync with inventory
-      await syncWithInventory(order);
-      
-      // Print receipt if needed
-      if (window.confirm('Do you want to print a receipt?')) {
-        printReceipt({...order, id: orderId});
-      }
-      
-      // In a real app, try to send to server
-      // Simulate API call with setTimeout
-      await new Promise(resolve => setTimeout(resolve, 500));
-      
-      // Reset form for next order
+
       setOrderItems([{ sku_id: '', quantity: 1, subtotal: 0 }]);
       setSelectedCustomer('');
       setDiscount(0);
       setTax(0);
       setAmountReceived(0);
       setActivePaymentTab('cash');
-      
-      showNotification(`Order ${orderId} completed successfully`, 'success');
-      
+
+      showNotification('Order completed and saved to server', 'success');
     } catch (error) {
       console.error('Error submitting order:', error);
-      showNotification('Error completing order. Order was saved locally.', 'error');
+      showNotification(error.message || 'Error completing order. Order was saved locally.', 'error');
     }
   };
 
@@ -809,25 +852,33 @@ const POSInterface = () => {
             
                   {/* Customer Selection */}
                     <div className="customer-selection">
-                      <select 
-                className="customer-select"
-                        value={selectedCustomer} 
-                        onChange={handleCustomerChange}
-                      >
-                <option value="">Select Customer</option>
-                        {customers.map(customer => (
-                          <option key={customer.id} value={customer.id}>
-                            {customer.name} - {customer.contact_info}
-                          </option>
-                        ))}
-                      </select>
+                      {isLoading ? (
+                        <div className="loading">Loading customers...</div>
+                      ) : customers.length === 0 ? (
+                        <div className="no-customers">No customers found.</div>
+                      ) : (
+                        <select
+                          id="customer-select"
+                          className="form-input"
+                          value={selectedCustomer}
+                          onChange={handleCustomerChange}
+                          required
+                        >
+                          <option value="">-- Select Customer --</option>
+                          {customers.map((customer) => (
+                            <option key={customer.id || customer.customer_id} value={customer.id || customer.customer_id}>
+                              {customer.name || customer.full_name || customer.username || 'Unnamed'}
+                            </option>
+                          ))}
+                        </select>
+                      )}
                       <button 
-                className="add-customer-btn"
-                onClick={() => setShowAddCustomerModal(true)}
-              >
-                <FaUserPlus /> New Customer
+                        className="add-customer-btn"
+                        onClick={() => setShowAddCustomerModal(true)}
+                      >
+                        <FaUserPlus /> New Customer
                       </button>
-                  </div>
+                    </div>
 
                   {/* Order Items */}
             <table className="order-items-table">
@@ -844,31 +895,37 @@ const POSInterface = () => {
                           {orderItems.map((item, index) => (
                   <tr key={index} className="order-item-row">
                               <td>
-                                <select
-                        className="sku-select"
-                                  value={item.sku_id}
-                                  onChange={(e) => handleItemChange(index, 'sku_id', e.target.value)}
-                                >
-                        <option value="">Select Product</option>
-                                  {skus.map(sku => (
-                                    <option key={sku.id} value={sku.id}>
-                            {sku.code} - {sku.name} (₹{sku.price})
-                                    </option>
-                                  ))}
-                                </select>
+                                {isLoading ? (
+                                  <div className="loading">Loading products...</div>
+                                ) : Array.isArray(skus) && skus.length > 0 ? (
+                                  <select
+                                    className="sku-select"
+                                    value={item.sku_id}
+                                    onChange={(e) => handleItemChange(index, 'sku_id', e.target.value)}
+                                  >
+                                    <option value="">Select Product</option>
+                                    {skus.map(sku => (
+                                      <option key={sku.sku_id} value={sku.sku_id}>
+                                        {sku.name || sku.product_name || sku.code || 'Unnamed'}
+                                      </option>
+                                    ))}
+                                  </select>
+                                ) : (
+                                  <div className="no-products">No products found.</div>
+                                )}
                               </td>
                               <td>
                                 <input
                                   type="number"
                                   className="quantity-input"
-                        value={item.quantity}
-                        min="1"
-                        onChange={(e) => handleItemChange(index, 'quantity', parseInt(e.target.value))}
+                                  value={item.quantity}
+                                  min="1"
+                                  onChange={(e) => handleItemChange(index, 'quantity', parseInt(e.target.value))}
                                 />
                               </td>
                     <td>
                       {item.sku_id ? (
-                        <span>₹{skus.find(sku => sku.id === parseInt(item.sku_id))?.price || 0}</span>
+                        <span>₹{skus.find(sku => sku.sku_id === parseInt(item.sku_id))?.price || 0}</span>
                       ) : '-'}
                     </td>
                     <td>
@@ -877,9 +934,9 @@ const POSInterface = () => {
                               <td>
                                 <button 
                                   className="remove-item-btn"
-                        onClick={() => removeOrderItem(index)}
-                        disabled={orderItems.length === 1}
-                        title="Remove Item"
+                                  onClick={() => removeOrderItem(index)}
+                                  disabled={orderItems.length === 1}
+                                  title="Remove Item"
                                 >
                                   <FaTrash />
                                 </button>
@@ -968,12 +1025,6 @@ const POSInterface = () => {
                 >
                   <FaQrcode /> UPI/QR
                 </div>
-                <div 
-                        className={`payment-tab ${activePaymentTab === 'credit' ? 'active' : ''}`}
-                  onClick={() => handlePaymentMethodChange('credit')}
-                      >
-                  <AiFillIdcard /> Credit
-                </div>
                     </div>
 
                       {activePaymentTab === 'cash' && (
@@ -1025,32 +1076,6 @@ const POSInterface = () => {
                     <p>Scan to pay: ₹{totals.total}</p>
                     <p className="qr-instructions">Scan the QR code using any UPI app to make payment</p>
                   </div>
-                        </div>
-                      )}
-
-                      {activePaymentTab === 'credit' && (
-                <div className="credit-payment">
-                          <div className="form-field">
-                    <label htmlFor="credit-amount">Credit Amount</label>
-                            <input
-                      id="credit-amount"
-                              type="number"
-                      className="amount-received-input"
-                      value={parseFloat(totals.total)}
-                      readOnly
-                    />
-                  </div>
-                  <div className="form-field">
-                    <label htmlFor="credit-period">Credit Period (Days)</label>
-                    <input
-                      id="credit-period"
-                      type="number"
-                      className="credit-period-input"
-                              value={creditPeriodDays}
-                      min="1"
-                              onChange={(e) => setCreditPeriodDays(parseInt(e.target.value) || 30)}
-                            />
-                          </div>
                         </div>
                       )}
 
@@ -1155,7 +1180,11 @@ const POSInterface = () => {
               </button>
               <button 
                 className="confirm-btn"
-                onClick={addNewCustomer}
+                onClick={async () => {
+                  await addNewCustomer();
+                  fetchCustomers(); // Auto-refresh after add
+                  setShowAddCustomerModal(false);
+                }}
               >
                 Add Customer
               </button>
@@ -1166,8 +1195,13 @@ const POSInterface = () => {
       
       {/* Notification Toast */}
       {notification.show && (
-        <div className={`toast-notification ${notification.type}`}>
+        <div className={`toast-notification ${notification.type}`}
+             onClick={dismissNotification}
+             role="alert"
+             aria-live="assertive"
+             tabIndex={0}>
           {notification.message}
+          <button className="toast-dismiss" onClick={dismissNotification} aria-label="Dismiss notification">&times;</button>
         </div>
       )}
     </div>

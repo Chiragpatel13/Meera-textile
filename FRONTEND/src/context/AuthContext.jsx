@@ -12,17 +12,11 @@ export const AuthProvider = ({ children }) => {
   useEffect(() => {
     const checkAuth = async () => {
       const token = localStorage.getItem('token');
-      const storedRole = localStorage.getItem('userRole');
       
       if (token) {
         try {
           const userData = await fetchUserProfile();
-          // Ensure role is properly set
-          const userWithRole = {
-            ...userData,
-            role: userData.role || storedRole
-          };
-          setUser(userWithRole);
+          setUser(userData);
           
           // Update localStorage with latest data
           localStorage.setItem('userName', userData.full_name || userData.username);
@@ -30,10 +24,13 @@ export const AuthProvider = ({ children }) => {
           localStorage.setItem('userRole', userData.role);
         } catch (error) {
           console.error('Error fetching user profile:', error);
-          clearAuthData();
+          // Clear invalid token and user data
+          localStorage.removeItem('token');
+          localStorage.removeItem('userName');
+          localStorage.removeItem('userEmail');
+          localStorage.removeItem('userRole');
+          setUser(null);
         }
-      } else {
-        clearAuthData();
       }
       
       setLoading(false);
@@ -42,36 +39,23 @@ export const AuthProvider = ({ children }) => {
     checkAuth();
   }, []);
 
-  const clearAuthData = () => {
-    localStorage.removeItem('token');
-    localStorage.removeItem('userName');
-    localStorage.removeItem('userEmail');
-    localStorage.removeItem('userRole');
-    setUser(null);
-  };
-
   const login = (userData) => {
-    if (!userData.role) {
-      console.error('No role provided in user data');
-      return;
-    }
     setUser(userData);
     console.log('User logged in:', userData);
   };
 
   const logout = () => {
     try {
-      clearAuthData();
-      console.log('User logged out');
-    } catch (error) {
-      console.error('Error during logout:', error);
-      // Still clear user even if there's an error
+      localStorage.removeItem('token');
+      localStorage.removeItem('userName');
+      localStorage.removeItem('userEmail');
+      localStorage.removeItem('userRole');
       setUser(null);
+      window.location.replace('/login'); // hard redirect to login to prevent history back
+    } catch (error) {
+      setUser(null);
+      window.location.replace('/login');
     }
-  };
-
-  const hasRole = (requiredRole) => {
-    return user && user.role === requiredRole;
   };
 
   const value = {
@@ -79,7 +63,6 @@ export const AuthProvider = ({ children }) => {
     loading,
     login,
     logout,
-    hasRole,
     isAuthenticated: !!user
   };
 

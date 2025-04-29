@@ -2,15 +2,22 @@ import React, { useState, useEffect } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { 
   FaUserCircle, 
-  FaSignOutAlt,
+  FaEnvelope, 
+  FaLock,
+  FaBox, 
+  FaShoppingCart, 
+  FaRupeeSign, 
+  FaFolder,
+  FaPlus, 
+  FaChartBar, 
+  FaUsers,
+  FaUserPlus,
   FaSync,
+  FaSignOutAlt,
   FaBars,
   FaKey,
-  FaChartBar,
-  FaBox,
-  FaShoppingCart,
-  FaUsers,
-  FaFolder
+  FaPhone,
+  FaMapMarkerAlt
 } from 'react-icons/fa';
 import '../styles/dashboard.css';
 import { useAuth } from '../context/AuthContext';
@@ -19,14 +26,15 @@ const API_BASE_URL = 'http://localhost:8082/api';
 
 const Profile = () => {
   const navigate = useNavigate();
-  const { user, logout } = useAuth();
+  const { user } = useAuth();
   const [formData, setFormData] = useState({
     username: user?.username || '',
     email: user?.email || '',
+    password: '',
     fullName: user?.full_name || '',
     phoneNumber: user?.phone_number || '',
     address: user?.address || '',
-    password: ''
+    role: user?.role || ''
   });
   const [errors, setErrors] = useState({});
   const [isLoading, setIsLoading] = useState(true);
@@ -35,17 +43,18 @@ const Profile = () => {
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
   const [userMenuOpen, setUserMenuOpen] = useState(false);
   const [userData, setUserData] = useState({
-    name: user?.full_name || user?.username || 'Unknown User',
-    email: user?.email || 'No email',
+    name: user?.full_name || user?.username || '',
+    email: user?.email || '',
     phoneNumber: user?.phone_number || '',
-    address: user?.address || ''
+    address: user?.address || '',
+    role: user?.role || ''
   });
 
   const fetchUserProfile = async () => {
     try {
       const token = localStorage.getItem('token');
       if (!token) {
-        navigate('/login');
+        navigate('/login', { replace: true });
         return;
       }
 
@@ -59,7 +68,7 @@ const Profile = () => {
       if (!response.ok) {
         if (response.status === 401) {
           localStorage.removeItem('token');
-          navigate('/login');
+          navigate('/login', { replace: true });
           return;
         }
         throw new Error('Failed to fetch user profile');
@@ -70,23 +79,26 @@ const Profile = () => {
       // Update local storage with latest user data
       localStorage.setItem('userName', data.full_name || data.username);
       localStorage.setItem('userEmail', data.email);
+      localStorage.setItem('userRole', data.role);
       
       const updatedUserData = {
         name: data.full_name || data.username || 'Unknown User',
         email: data.email || 'No email',
         phoneNumber: data.phone_number || '',
-        address: data.address || ''
+        address: data.address || '',
+        role: data.role
       };
 
       setUserData(updatedUserData);
-      setFormData(prev => ({
-        ...prev,
+      setFormData({
         username: data.username,
         fullName: data.full_name || data.username,
         email: data.email,
         phoneNumber: data.phone_number || '',
-        address: data.address || ''
-      }));
+        address: data.address || '',
+        role: data.role,
+        password: ''
+      });
       setIsLoading(false);
     } catch (error) {
       console.error('Error fetching user profile:', error);
@@ -96,9 +108,7 @@ const Profile = () => {
   };
 
   useEffect(() => {
-    if (user) {
-      fetchUserProfile();
-    }
+    fetchUserProfile();
   }, [user]);
 
   const handleChange = (e) => {
@@ -201,7 +211,8 @@ const Profile = () => {
         name: formData.fullName,
         email: formData.email,
         phoneNumber: formData.phoneNumber,
-        address: formData.address
+        address: formData.address,
+        role: userData.role
       });
     } catch (error) {
       console.error('Error updating profile:', error);
@@ -223,15 +234,13 @@ const Profile = () => {
     }, 3000);
   };
 
-  const handleLogout = async () => {
-    try {
-      // First navigate to login
-      navigate('/login', { replace: true });
-      // Then perform logout
-      logout();
-    } catch (error) {
-      console.error('Logout error:', error);
-    }
+  const handleLogout = () => {
+    localStorage.removeItem('token');
+    localStorage.removeItem('userName');
+    localStorage.removeItem('userEmail');
+    localStorage.removeItem('userRole');
+    navigate('/login', { replace: true });
+    window.location.reload(); // ensure all state resets
   };
 
   const toggleSidebar = () => {
@@ -298,11 +307,12 @@ const Profile = () => {
               <FaSync />
             </button>
             <div className="user-menu-container">
-              <div className="user-profile-icon" onClick={toggleUserMenu}>
+              <button className="user-menu-btn" onClick={toggleUserMenu}>
                 <FaUserCircle />
-              </div>
+              </button>
+              
               {userMenuOpen && (
-                <div className="user-menu">
+                <div className="user-popup">
                   <div className="user-info">
                     <div className="user-avatar">
                       <FaUserCircle />
@@ -310,10 +320,17 @@ const Profile = () => {
                     <div className="user-details">
                       <h3>{userData.name || 'Demo User'}</h3>
                       <p>{userData.email || 'demo@miratextile.com'}</p>
+                      <span className="user-role">{userData.role || 'Unknown Role'}</span>
                     </div>
                   </div>
                   <div className="user-actions">
-                    <button onClick={handleLogout} className="logout-button">
+                    <button className="view-profile-btn" onClick={handleUser}>
+                      <FaUserCircle /> View Profile
+                    </button>
+                    <button className="reset-password-btn" onClick={handleResetPassword}>
+                      <FaKey /> Reset Password
+                    </button>
+                    <button className="logout-btn" onClick={handleLogout}>
                       <FaSignOutAlt /> Logout
                     </button>
                   </div>
@@ -342,6 +359,7 @@ const Profile = () => {
               <div className="card profile-card">
                 <div className="card-header">
                   <h2>User Profile</h2>
+                  <div className="user-role-badge">{formData.role}</div>
                 </div>
                 <div className="card-body">
                   <div className="profile-avatar">
@@ -368,7 +386,7 @@ const Profile = () => {
                       <div className="form-field">
                         <label htmlFor="email">Email Address</label>
                         <div className="input-with-icon">
-                          <FaKey className="field-icon" />
+                          <FaEnvelope className="field-icon" />
                           <input
                             type="email"
                             id="email"
@@ -402,7 +420,7 @@ const Profile = () => {
                       <div className="form-field">
                         <label htmlFor="phoneNumber">Phone Number</label>
                         <div className="input-with-icon">
-                          <FaKey className="field-icon" />
+                          <FaPhone className="field-icon" />
                           <input
                             type="text"
                             id="phoneNumber"
@@ -419,7 +437,7 @@ const Profile = () => {
                       <div className="form-field full-width">
                         <label htmlFor="address">Address</label>
                         <div className="input-with-icon">
-                          <FaKey className="field-icon" />
+                          <FaMapMarkerAlt className="field-icon" />
                           <input
                             type="text"
                             id="address"
@@ -436,7 +454,7 @@ const Profile = () => {
                       <div className="form-field full-width">
                         <label htmlFor="password">New Password (optional)</label>
                         <div className="input-with-icon">
-                          <FaKey className="field-icon" />
+                          <FaLock className="field-icon" />
                           <input
                             type="password"
                             id="password"

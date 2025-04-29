@@ -32,137 +32,7 @@ import '../styles/inventory.css';
 import LoadingAnimation from '../components/LoadingAnimation';
 import { useAuth } from '../context/AuthContext';
 
-// Dummy data for inventory items
-const dummyInventoryData = [
-  {
-    id: 1,
-    sku: 'FBR-CTN-001',
-    name: 'Cotton Fabric',
-    category: 'Fabric',
-    price: 350,
-    quantity: 150,
-    size: 'Standard',
-    color: 'White',
-    status: 'In Stock',
-    lastUpdated: '2023-05-10'
-  },
-  {
-    id: 2,
-    sku: 'FBR-SLK-002',
-    name: 'Silk Fabric',
-    category: 'Fabric',
-    price: 850,
-    quantity: 75,
-    size: 'Standard',
-    color: 'Red',
-    status: 'In Stock',
-    lastUpdated: '2023-05-12'
-  },
-  {
-    id: 3,
-    sku: 'FBR-PLY-003',
-    name: 'Polyester Blend',
-    category: 'Fabric',
-    price: 250,
-    quantity: 200,
-    size: 'Standard',
-    color: 'Blue',
-    status: 'In Stock',
-    lastUpdated: '2023-05-15'
-  },
-  {
-    id: 4,
-    sku: 'BTN-PLS-001',
-    name: 'Plastic Buttons',
-    category: 'Accessories',
-    price: 120,
-    quantity: 500,
-    size: 'Small',
-    color: 'Black',
-    status: 'In Stock',
-    lastUpdated: '2023-05-18'
-  },
-  {
-    id: 5,
-    sku: 'FBR-LNN-004',
-    name: 'Linen Fabric',
-    category: 'Fabric',
-    price: 450,
-    quantity: 8,
-    size: 'Standard',
-    color: 'Beige',
-    status: 'Low Stock',
-    lastUpdated: '2023-05-20'
-  },
-  {
-    id: 6,
-    sku: 'ZPR-MTL-001',
-    name: 'Metal Zippers',
-    category: 'Accessories',
-    price: 85,
-    quantity: 350,
-    size: 'Medium',
-    color: 'Silver',
-    status: 'In Stock',
-    lastUpdated: '2023-05-22'
-  },
-  {
-    id: 7,
-    sku: 'THR-CTN-001',
-    name: 'Cotton Thread',
-    category: 'Accessories',
-    price: 50,
-    quantity: 5,
-    size: 'Standard',
-    color: 'Assorted',
-    status: 'Low Stock',
-    lastUpdated: '2023-05-25'
-  },
-  {
-    id: 8,
-    sku: 'FBR-DNM-005',
-    name: 'Denim Fabric',
-    category: 'Fabric',
-    price: 550,
-    quantity: 100,
-    size: 'Standard',
-    color: 'Blue',
-    status: 'In Stock',
-    lastUpdated: '2023-05-28'
-  },
-  {
-    id: 9,
-    sku: 'BTN-WOD-002',
-    name: 'Wooden Buttons',
-    category: 'Accessories',
-    price: 180,
-    quantity: 250,
-    size: 'Medium',
-    color: 'Brown',
-    status: 'In Stock',
-    lastUpdated: '2023-05-30'
-  },
-  {
-    id: 10,
-    name: 'Velvet Fabric',
-    sku: 'FBR-VLV-006',
-    category: 'Fabric',
-    price: 750,
-    quantity: 50,
-    size: 'Standard',
-    color: 'Purple',
-    status: 'In Stock',
-    lastUpdated: '2023-06-01'
-  }
-];
-
-// Categories for filtering
-const categories = [
-  { id: 'all', name: 'All Categories' },
-  { id: 'fabric', name: 'Fabric' },
-  { id: 'accessories', name: 'Accessories' },
-  { id: 'lowstock', name: 'Low Stock Items' }
-];
+const API_BASE_URL = 'http://localhost:8080/api';
 
 const InventoryManagement = () => {
   const navigate = useNavigate();
@@ -173,8 +43,8 @@ const InventoryManagement = () => {
     role: user?.role || ''
   });
   // State management
-  const [inventory, setInventory] = useState(dummyInventoryData);
-  const [filteredInventory, setFilteredInventory] = useState(dummyInventoryData);
+  const [inventory, setInventory] = useState([]);
+  const [filteredInventory, setFilteredInventory] = useState([]);
   const [loading, setLoading] = useState(false);
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
   const [userMenuOpen, setUserMenuOpen] = useState(false);
@@ -197,6 +67,7 @@ const InventoryManagement = () => {
   
   useEffect(() => {
     fetchUserData();
+    fetchInventory();
   }, [user]);
 
   const fetchUserData = async () => {
@@ -207,7 +78,7 @@ const InventoryManagement = () => {
         return;
       }
 
-      const response = await fetch('http://localhost:8080/api/auth/profile', {
+      const response = await fetch(`${API_BASE_URL}/auth/profile`, {
         headers: {
           'Authorization': `Bearer ${token}`
         }
@@ -230,6 +101,49 @@ const InventoryManagement = () => {
         email: user?.email || '',
         role: user?.role || ''
       });
+    }
+  };
+
+  // Map backend product to frontend display fields
+  const mapProductToDisplay = (item) => ({
+    sku: item.sku_code,
+    name: item.fabric_type, // Show fabric type as product name
+    category: item.pattern, // Use pattern as category
+    price: item.price_per_meter,
+    quantity: item.total_quantity,
+    color: item.color,
+    status: 'In Stock', // You can add logic for status if needed
+    lastUpdated: item.last_updated_at || item.created_at
+  });
+
+  // Fetch inventory from backend
+  const fetchInventory = async () => {
+    setLoading(true);
+    try {
+      const token = localStorage.getItem('token');
+      const response = await fetch(`${API_BASE_URL}/products`, {
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json'
+        }
+      });
+      if (!response.ok) throw new Error('Failed to fetch inventory');
+      const data = await response.json();
+      let products = [];
+      if (Array.isArray(data)) {
+        products = data;
+      } else if (data.data && Array.isArray(data.data)) {
+        products = data.data;
+      }
+      // Map backend fields to frontend display
+      const mapped = products.map(mapProductToDisplay);
+      setInventory(mapped);
+      setFilteredInventory(mapped);
+    } catch (error) {
+      setInventory([]);
+      setFilteredInventory([]);
+    } finally {
+      setLoading(false);
     }
   };
 
@@ -358,32 +272,42 @@ const InventoryManagement = () => {
   };
 
   // Handle form submission
-  const handleAddProduct = (e) => {
+  const handleAddProduct = async (e) => {
     e.preventDefault();
-    
     // Validate form
-    if (!newProduct.sku || !newProduct.name || !newProduct.price || !newProduct.quantity) {
-      alert('Please fill all required fields');
+    if (!newProduct.sku || !newProduct.name || !newProduct.category || !newProduct.price) {
+      alert('Please fill in all required fields.');
       return;
     }
-
-    // Create new product with ID
-    const product = {
-      ...newProduct,
-      id: inventory.length + 1,
-      price: parseFloat(newProduct.price),
-      quantity: parseInt(newProduct.quantity),
-      status: parseInt(newProduct.quantity) < 10 ? 'Low Stock' : 'In Stock'
-    };
-
-    // Add to inventory
-    setInventory([...inventory, product]);
-    
-    // Close modal
-    handleCloseAddModal();
-    
-    // Show success message
-    alert('Product added successfully!');
+    try {
+      const token = localStorage.getItem('token');
+      const response = await fetch(`${API_BASE_URL}/products`, {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+          sku_code: newProduct.sku,
+          fabric_type: newProduct.name,
+          color: newProduct.color,
+          pattern: newProduct.category,
+          price_per_meter: parseFloat(newProduct.price),
+          // Optionally: send quantity if your backend supports it
+        })
+      });
+      if (!response.ok) {
+        const errorText = await response.text();
+        throw new Error(`Failed to add product: ${errorText}`);
+      }
+      const data = await response.json();
+      fetchInventory();
+      handleCloseAddModal();
+      alert('Product added successfully!');
+    } catch (error) {
+      console.error('Error adding product:', error);
+      alert('Error adding product. Please check your input and try again.\n' + (error.message || ''));
+    }
   };
 
   // Export inventory data to CSV
@@ -424,19 +348,19 @@ const InventoryManagement = () => {
   };
 
   // Import inventory data from CSV
-  const handleImportCSV = () => {
+  const handleImportCSV = async () => {
     // Create file input element
     const fileInput = document.createElement('input');
     fileInput.type = 'file';
     fileInput.accept = '.csv';
     
     // Handle file selection
-    fileInput.onchange = (e) => {
+    fileInput.onchange = async (e) => {
       const file = e.target.files[0];
       if (!file) return;
       
       const reader = new FileReader();
-      reader.onload = (event) => {
+      reader.onload = async (event) => {
         try {
           const csvData = event.target.result;
           const lines = csvData.split('\n');
@@ -479,7 +403,6 @@ const InventoryManagement = () => {
             
             // Create product object
             const product = {
-              id: inventory.length + newInventory.length + 1,
               sku: values[0],
               name: productName,
               category: values[2],
@@ -502,13 +425,30 @@ const InventoryManagement = () => {
           
           // Update inventory
           if (newInventory.length > 0) {
-            setInventory([...inventory, ...newInventory]);
-            alert(`Successfully imported ${newInventory.length} products.${skippedRows > 0 ? ` Skipped ${skippedRows} invalid rows.` : ''}`);
+            try {
+              const token = localStorage.getItem('token');
+              const response = await fetch(`${API_BASE_URL}/products/import`, {
+                method: 'POST',
+                headers: {
+                  'Authorization': `Bearer ${token}`,
+                  'Content-Type': 'application/json'
+                },
+                body: JSON.stringify(newInventory)
+              });
+
+              if (!response.ok) throw new Error('Failed to import products');
+
+              const data = await response.json();
+              setInventory(data);
+              alert(`Successfully imported ${newInventory.length} products.${skippedRows > 0 ? ` Skipped ${skippedRows} invalid rows.` : ''}`);
+            } catch (error) {
+              console.error('Error importing products:', error);
+              alert('Error importing products. Please try again.');
+            }
           } else {
             alert('No valid products found in the CSV file.');
           }
-          
-    } catch (error) {
+        } catch (error) {
           console.error('Error parsing CSV:', error);
           alert('Error parsing CSV file. Please check the format and try again.');
         }
@@ -535,10 +475,25 @@ const InventoryManagement = () => {
   };
 
   // Handle delete product
-  const handleDeleteProduct = (productId) => {
+  const handleDeleteProduct = async (productId) => {
     if (window.confirm('Are you sure you want to delete this product?')) {
-      setInventory(inventory.filter(item => item.id !== productId));
-      alert('Product deleted successfully!');
+      try {
+        const token = localStorage.getItem('token');
+        const response = await fetch(`${API_BASE_URL}/products/${productId}`, {
+          method: 'DELETE',
+          headers: {
+            'Authorization': `Bearer ${token}`
+          }
+        });
+
+        if (!response.ok) throw new Error('Failed to delete product');
+
+        setInventory(inventory.filter(item => item.id !== productId));
+        alert('Product deleted successfully!');
+      } catch (error) {
+        console.error('Error deleting product:', error);
+        alert('Error deleting product. Please try again.');
+      }
     }
   };
 
@@ -558,34 +513,38 @@ const InventoryManagement = () => {
   };
 
   // Handle form submission for editing
-  const handleSaveProduct = (e) => {
+  const handleSaveProduct = async (e) => {
     e.preventDefault();
-    
     // Validate form
-    if (!editingProduct.sku || !editingProduct.name || !editingProduct.price || !editingProduct.quantity) {
-      alert('Please fill all required fields');
+    if (!editingProduct.sku || !editingProduct.name || !editingProduct.category || !editingProduct.price || !editingProduct.quantity) {
+      alert('Please fill in all required fields.');
       return;
     }
-
-    // Update product
-    const updatedProduct = {
-      ...editingProduct,
-      price: parseFloat(editingProduct.price),
-      quantity: parseInt(editingProduct.quantity),
-      status: parseInt(editingProduct.quantity) < 10 ? 'Low Stock' : 'In Stock',
-      lastUpdated: new Date().toISOString().slice(0, 10)
-    };
-
-    // Update inventory
-    setInventory(inventory.map(item => 
-      item.id === updatedProduct.id ? updatedProduct : item
-    ));
-    
-    // Close modal
-    handleCloseEditModal();
-    
-    // Show success message
-    alert('Product updated successfully!');
+    try {
+      const token = localStorage.getItem('token');
+      const response = await fetch(`${API_BASE_URL}/products/${editingProduct.id}`, {
+        method: 'PUT',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+          sku_code: editingProduct.sku,
+          fabric_type: editingProduct.name, // map as per backend
+          color: editingProduct.color,
+          pattern: editingProduct.category, // map as per backend
+          price_per_meter: parseFloat(editingProduct.price)
+        })
+      });
+      if (!response.ok) throw new Error('Failed to update product');
+      const data = await response.json();
+      fetchInventory();
+      handleCloseEditModal();
+      alert('Product updated successfully!');
+    } catch (error) {
+      console.error('Error updating product:', error);
+      alert('Error updating product. Please try again.');
+    }
   };
 
   return (
@@ -685,16 +644,35 @@ const InventoryManagement = () => {
 
           {/* Category Filter */}
           <div className="category-filter">
-            {categories.map(category => (
-              <button 
-                key={category.id}
-                className={`category-btn ${activeCategory === category.id ? 'active' : ''}`}
-                onClick={() => handleCategoryChange(category.id)}
-              >
-                {category.name}
-              </button>
-            ))}
-              </div>
+            <button 
+              key="all"
+              className={`category-btn ${activeCategory === 'all' ? 'active' : ''}`}
+              onClick={() => handleCategoryChange('all')}
+            >
+              All Categories
+            </button>
+            <button 
+              key="fabric"
+              className={`category-btn ${activeCategory === 'fabric' ? 'active' : ''}`}
+              onClick={() => handleCategoryChange('fabric')}
+            >
+              Fabric
+            </button>
+            <button 
+              key="accessories"
+              className={`category-btn ${activeCategory === 'accessories' ? 'active' : ''}`}
+              onClick={() => handleCategoryChange('accessories')}
+            >
+              Accessories
+            </button>
+            <button 
+              key="lowstock"
+              className={`category-btn ${activeCategory === 'lowstock' ? 'active' : ''}`}
+              onClick={() => handleCategoryChange('lowstock')}
+            >
+              Low Stock Items
+            </button>
+          </div>
 
           {/* Inventory Table */}
           {loading ? (
@@ -727,7 +705,7 @@ const InventoryManagement = () => {
                           <div className="product-cell">
                             <span className="product-color" style={{ backgroundColor: product.color.toLowerCase() }}></span>
                             <span>{product.name}</span>
-              </div>
+                          </div>
                         </td>
                         <td>{product.category}</td>
                         <td>{formatCurrency(product.price)}</td>
@@ -735,7 +713,7 @@ const InventoryManagement = () => {
                           <div className="quantity-cell">
                             <span className={`quantity-indicator ${product.quantity < 10 ? 'low' : 'normal'}`}></span>
                             {product.quantity}
-            </div>
+                          </div>
                         </td>
                         <td>
                           <span className={`status-badge ${product.quantity < 10 ? 'low-stock' : 'in-stock'}`}>
@@ -759,7 +737,7 @@ const InventoryManagement = () => {
                             >
                               <FaTrash />
                             </button>
-          </div>
+                          </div>
                         </td>
                       </tr>
                     ))
@@ -778,8 +756,8 @@ const InventoryManagement = () => {
               <div className="stat-content">
                 <h3>Total Products</h3>
                 <p className="stat-value">{inventory.length}</p>
-        </div>
-      </div>
+              </div>
+            </div>
 
             <div className="stat-card">
               <div className="stat-icon categories">

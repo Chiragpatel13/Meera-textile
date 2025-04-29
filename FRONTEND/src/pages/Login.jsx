@@ -16,27 +16,16 @@ const Login = () => {
   const { login: authLogin } = useAuth();
 
   useEffect(() => {
+    // Check if already logged in
     const token = localStorage.getItem('token');
-    const userRole = localStorage.getItem('userRole');
-    if (token && userRole) {
-      switch (userRole) {
-        case 'ADMIN':
-        case 'STORE_MANAGER':
-          navigate('/dashboard', { replace: true });
-          break;
-        case 'SALES_STAFF':
-          navigate('/sales', { replace: true });
-          break;
-        case 'INVENTORY_STAFF':
-          navigate('/inventory', { replace: true });
-          break;
-        default:
-          navigate('/login', { replace: true });
-      }
+    if (token) {
+      navigate('/dashboard', { replace: true });
     }
+    // Remove loading after a short delay
     const timer = setTimeout(() => {
       setPageLoading(false);
     }, 1000);
+    
     return () => clearTimeout(timer);
   }, [navigate]);
 
@@ -68,31 +57,26 @@ const Login = () => {
 
   const handleSubmit = async (e) => {
     e.preventDefault();
-    setError('');
+    
+    if (!validateForm()) {
+      return;
+    }
+    
     setIsSubmitting(true);
-
+    setError('');
+    
     try {
-      const data = await login(credentials);
-      authLogin(data);
-
-      // Role-based redirection
-      switch (data.role) {
-        case 'ADMIN':
-        case 'STORE_MANAGER':
-          navigate('/dashboard');
-          break;
-        case 'SALES_STAFF':
-          navigate('/sales');
-          break;
-        case 'INVENTORY_STAFF':
-          navigate('/inventory');
-          break;
-        default:
-          setError('Invalid user role');
-      }
+      const response = await login(credentials);
+      
+      // Store user info
+      authLogin(response); // response is already the user object with token
+      localStorage.setItem('userName', response.full_name || response.username || '');
+      localStorage.setItem('userEmail', response.email || '');
+      localStorage.setItem('userRole', response.role || '');
+      
+      navigate('/dashboard', { replace: true });
     } catch (error) {
-      console.error('Login error:', error);
-      setError(error.message || 'Failed to login. Please try again.');
+      setError(error.message || 'Invalid credentials');
     } finally {
       setIsSubmitting(false);
     }

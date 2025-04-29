@@ -1,28 +1,30 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { 
+  FaUserPlus, 
   FaUserCircle, 
   FaBars,
   FaSignOutAlt,
   FaKey,
-  FaEdit,
-  FaTrash,
-  FaSearch,
+  FaCalendarAlt,
   FaChartBar,
   FaBox,
   FaCashRegister,
   FaUsers,
   FaFolder,
-  FaCalendarAlt,
-  FaUserPlus
+  FaEdit,
+  FaTrash,
+  FaSearch,
+  FaFilter
 } from 'react-icons/fa';
 import { useAuth } from '../context/AuthContext';
 import '../styles/dashboard.css';
 import '../styles/UserManagement.css';
+import AddUserModal from '../components/AddUserModal'; // Import the AddUserModal component
 
 const UserManagement = () => {
   const navigate = useNavigate();
-  const { user, logout } = useAuth();
+  const { user } = useAuth();
   const [users, setUsers] = useState([]);
   const [filteredUsers, setFilteredUsers] = useState([]);
   const [searchTerm, setSearchTerm] = useState('');
@@ -42,13 +44,15 @@ const UserManagement = () => {
   const [formErrors, setFormErrors] = useState({});
   const [successMessage, setSuccessMessage] = useState('');
   const [errorMessage, setErrorMessage] = useState('');
+  const [showAddUserModal, setShowAddUserModal] = useState(false); // New state variable
 
-  // Check for admin access
   useEffect(() => {
-    if (!user || user.role !== 'ADMIN') {
-      navigate('/dashboard');
-    }
-  }, [user, navigate]);
+    fetchUsers();
+  }, []);
+
+  useEffect(() => {
+    filterUsers();
+  }, [searchTerm, users, filterUsers]);
 
   const fetchUsers = async () => {
     try {
@@ -57,26 +61,19 @@ const UserManagement = () => {
         throw new Error('No authentication token found');
       }
 
-      const response = await fetch('http://localhost:8080/api/auth/users', {
+      const response = await fetch('http://localhost:8080/api/admin/users', {
         headers: {
-          'Authorization': `Bearer ${token}`,
-          'Content-Type': 'application/json'
+          'Authorization': `Bearer ${token}`
         }
       });
 
       if (!response.ok) {
-        if (response.status === 401) {
-          navigate('/login');
-          return;
-        }
         const errorData = await response.json();
         throw new Error(errorData.message || 'Failed to fetch users');
       }
 
       const data = await response.json();
-      const usersList = Array.isArray(data) ? data : (data.users || []);
-      setUsers(usersList);
-      setFilteredUsers(usersList);
+      setUsers(data);
     } catch (error) {
       console.error('Error fetching users:', error);
       setErrorMessage(error.message || 'Failed to fetch users. Please try again.');
@@ -85,16 +82,6 @@ const UserManagement = () => {
     }
   };
 
-  useEffect(() => {
-    if (user && user.role === 'ADMIN') {
-      fetchUsers();
-    }
-  }, [user]);
-
-  useEffect(() => {
-    filterUsers();
-  }, [searchTerm, users]);
-
   const filterUsers = useCallback(() => {
     if (!searchTerm) {
       setFilteredUsers(users);
@@ -102,17 +89,13 @@ const UserManagement = () => {
     }
 
     const filtered = users.filter(user => 
-      user.username?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      user.full_name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      user.email?.toLowerCase().includes(searchTerm.toLowerCase())
+      user.username.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      user.full_name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      user.email.toLowerCase().includes(searchTerm.toLowerCase())
     );
     
     setFilteredUsers(filtered);
   }, [searchTerm, users]);
-
-  useEffect(() => {
-    fetchUsers();
-  }, []);
 
   const handleDeleteUser = async (userId) => {
     if (!userId) {
@@ -178,7 +161,7 @@ const UserManagement = () => {
   };
 
   const handleLogout = () => {
-    logout();
+    localStorage.clear();
     navigate('/login');
   };
 
@@ -316,58 +299,8 @@ const UserManagement = () => {
     return Object.keys(errors).length === 0;
   };
 
-  const handleAddUser = async (e) => {
-    e.preventDefault();
-    if (!validateForm()) return;
-
-    setIsLoading(true);
-    setErrorMessage('');
-    setSuccessMessage('');
-
-    try {
-      const token = localStorage.getItem('token');
-      if (!token) {
-        throw new Error('No authentication token found');
-      }
-
-      const userData = {
-        username: formData.username.trim(),
-        full_name: formData.fullName.trim(),
-        email: formData.email.trim(),
-        password: formData.password,
-        role: formData.role
-      };
-
-      const response = await fetch('http://localhost:8080/api/admin/users', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${token}`
-        },
-        body: JSON.stringify(userData)
-      });
-
-      const data = await response.json();
-
-      if (!response.ok) {
-        throw new Error(data.message || 'Failed to create user');
-      }
-
-      setUsers(prevUsers => [...prevUsers, data]);
-      setSuccessMessage('User created successfully!');
-      
-      // Close modal and reset form after a short delay
-      setTimeout(() => {
-        setShowAddModal(false);
-        resetForm();
-      }, 1500);
-
-    } catch (error) {
-      console.error('Error creating user:', error);
-      setErrorMessage(error.message || 'Failed to create user. Please try again.');
-    } finally {
-      setIsLoading(false);
-    }
+  const handleAddUser = () => {
+    setShowAddUserModal(true);
   };
 
   const resetForm = () => {
@@ -487,7 +420,7 @@ const UserManagement = () => {
                 />
               </div>
             </div>
-            <button className="add-user-btn" onClick={() => setShowAddModal(true)}>
+            <button className="add-user-btn" onClick={handleAddUser}>
               <FaUserPlus /> Add New User
             </button>
           </div>
@@ -544,103 +477,12 @@ const UserManagement = () => {
       </div>
 
       {/* Add User Modal */}
-      {showAddModal && (
-        <div className="modal-overlay">
-          <div className="modal-container">
-            <div className="modal-header">
-              <h2>Add New User</h2>
-              <button className="close-modal" onClick={handleCloseAddModal}>&times;</button>
-            </div>
-            <div className="modal-body">
-              {successMessage && (
-                <div className="success-message">{successMessage}</div>
-              )}
-              {errorMessage && (
-                <div className="error-message">{errorMessage}</div>
-              )}
-              
-              <form onSubmit={handleAddUser}>
-                <div className="form-group">
-                  <label htmlFor="username">Username*</label>
-                  <input
-                    type="text"
-                    id="username"
-                name="username"
-                value={formData.username}
-                onChange={handleInputChange}
-                    placeholder="Enter username"
-                    className={formErrors.username ? 'error' : ''}
-                  />
-                  {formErrors.username && <span className="error-message">{formErrors.username}</span>}
-                </div>
-
-                <div className="form-group">
-                  <label htmlFor="fullName">Full Name*</label>
-                  <input
-                    type="text"
-                    id="fullName"
-                name="fullName"
-                value={formData.fullName}
-                onChange={handleInputChange}
-                    placeholder="Enter full name"
-                    className={formErrors.fullName ? 'error' : ''}
-                  />
-                  {formErrors.fullName && <span className="error-message">{formErrors.fullName}</span>}
-                </div>
-
-                <div className="form-group">
-                  <label htmlFor="email">Email Address*</label>
-                  <input
-                    type="email"
-                    id="email"
-                name="email"
-                value={formData.email}
-                onChange={handleInputChange}
-                    placeholder="Enter email address"
-                    className={formErrors.email ? 'error' : ''}
-                  />
-                  {formErrors.email && <span className="error-message">{formErrors.email}</span>}
-                </div>
-
-                <div className="form-group">
-                  <label htmlFor="password">Password*</label>
-                  <input
-                    type="password"
-                    id="password"
-                name="password"
-                value={formData.password}
-                onChange={handleInputChange}
-                    placeholder="Enter password"
-                    className={formErrors.password ? 'error' : ''}
-                  />
-                  {formErrors.password && <span className="error-message">{formErrors.password}</span>}
-                </div>
-
-                <div className="form-group">
-                  <label htmlFor="role">Role*</label>
-                  <select
-                    id="role"
-                  name="role"
-                  value={formData.role}
-                  onChange={handleInputChange}
-                    className={formErrors.role ? 'error' : ''}
-                  >
-                    <option value="SALES_STAFF">Sales Staff</option>
-                    <option value="INVENTORY_STAFF">Inventory Staff</option>
-                  </select>
-                  {formErrors.role && <span className="error-message">{formErrors.role}</span>}
-                </div>
-
-                <div className="modal-footer">
-                  <button type="button" className="cancel-btn" onClick={handleCloseAddModal}>Cancel</button>
-                  <button type="submit" className="submit-btn" disabled={isLoading}>
-                    {isLoading ? 'Creating...' : 'Create User'}
-                  </button>
-                </div>
-              </form>
-            </div>
-          </div>
-        </div>
+      {showAddUserModal && (
+        <AddUserModal
+          onClose={() => setShowAddUserModal(false)}
+          onUserAdded={fetchUsers}
+          currentUser={user || { role: localStorage.getItem('userRole') || '' }} // always provide a fallback
+        />
       )}
 
       {/* Edit User Modal */}

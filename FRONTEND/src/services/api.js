@@ -1,11 +1,11 @@
+// Use the proxy configuration from package.json
+// No need to specify the full URL as it will be proxied
+
+// Simulated API responses
+const SIMULATED_DELAY = 1500;
+
 // API configuration
 const API_BASE_URL = 'http://localhost:8080/api';
-
-// Helper function to get auth header
-const getAuthHeader = () => {
-    const token = localStorage.getItem('token');
-    return token ? { 'Authorization': `Bearer ${token}` } : {};
-};
 
 // Helper function to handle API responses
 const handleResponse = async (response) => {
@@ -16,108 +16,10 @@ const handleResponse = async (response) => {
     return data;
 };
 
-// Product API functions
-export const getAllProducts = async () => {
-    try {
-        const response = await fetch(`${API_BASE_URL}/products`, {
-            headers: {
-                ...getAuthHeader(),
-                'Content-Type': 'application/json'
-            }
-        });
-        
-        return handleResponse(response);
-    } catch (error) {
-        console.error('Error fetching products:', error);
-        throw error;
-    }
-};
-
-export const getLowStockProducts = async () => {
-    try {
-        const response = await fetch(`${API_BASE_URL}/products/low-stock`, {
-            headers: {
-                ...getAuthHeader(),
-                'Content-Type': 'application/json'
-            }
-        });
-        
-        return handleResponse(response);
-    } catch (error) {
-        console.error('Error fetching low stock products:', error);
-        throw error;
-    }
-};
-
-export const createProduct = async (productData) => {
-    try {
-        const response = await fetch(`${API_BASE_URL}/products`, {
-            method: 'POST',
-            headers: {
-                ...getAuthHeader(),
-                'Content-Type': 'application/json'
-            },
-            body: JSON.stringify(productData)
-        });
-        
-        return handleResponse(response);
-    } catch (error) {
-        console.error('Error creating product:', error);
-        throw error;
-    }
-};
-
-export const updateProduct = async (productId, productData) => {
-    try {
-        const response = await fetch(`${API_BASE_URL}/products/${productId}`, {
-            method: 'PUT',
-            headers: {
-                ...getAuthHeader(),
-                'Content-Type': 'application/json'
-            },
-            body: JSON.stringify(productData)
-        });
-        
-        return handleResponse(response);
-    } catch (error) {
-        console.error('Error updating product:', error);
-        throw error;
-    }
-};
-
-export const updateInventory = async (productId, inventoryData) => {
-    try {
-        const response = await fetch(`${API_BASE_URL}/products/${productId}/inventory`, {
-            method: 'PUT',
-            headers: {
-                ...getAuthHeader(),
-                'Content-Type': 'application/json'
-            },
-            body: JSON.stringify(inventoryData)
-        });
-        
-        return handleResponse(response);
-    } catch (error) {
-        console.error('Error updating inventory:', error);
-        throw error;
-    }
-};
-
-export const deleteProduct = async (productId) => {
-    try {
-        const response = await fetch(`${API_BASE_URL}/products/${productId}`, {
-            method: 'DELETE',
-            headers: {
-                ...getAuthHeader(),
-                'Content-Type': 'application/json'
-            }
-        });
-        
-        return handleResponse(response);
-    } catch (error) {
-        console.error('Error deleting product:', error);
-        throw error;
-    }
+// Helper function to get auth header
+const getAuthHeader = () => {
+    const token = localStorage.getItem('token');
+    return token ? { 'Authorization': `Bearer ${token}` } : {};
 };
 
 export const login = async (credentials) => {
@@ -140,9 +42,10 @@ export const login = async (credentials) => {
         const { token, user } = data;
 
         if (!token || !user || typeof user !== 'object') {
-            throw new Error('Invalid login response');
+            throw new Error('Invalid response data structure');
         }
 
+        // Store token and initial user data in localStorage
         localStorage.setItem('token', token);
         localStorage.setItem('userName', user.full_name || user.username || '');
         localStorage.setItem('userEmail', user.email || '');
@@ -228,3 +131,107 @@ export const resetPassword = async (token, newPassword) => {
         throw error;
     }
 };
+
+// Product API functions
+export const getAllProducts = async () => {
+    try {
+        const response = await fetch(`${API_BASE_URL}/products`, {
+            headers: {
+                ...getAuthHeader(),
+                'Content-Type': 'application/json'
+            }
+        });
+        
+        return handleResponse(response);
+    } catch (error) {
+        console.error('Error fetching products:', error);
+        throw error;
+    }
+};
+
+export const createProduct = async (productData) => {
+    try {
+        const response = await fetch(`${API_BASE_URL}/products`, {
+            method: 'POST',
+            headers: {
+                ...getAuthHeader(),
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify(productData)
+        });
+        
+        return handleResponse(response);
+    } catch (error) {
+        console.error('Error creating product:', error);
+        throw error;
+    }
+};
+
+export const updateProduct = async (productId, productData) => {
+    try {
+        const response = await fetch(`${API_BASE_URL}/products/${productId}`, {
+            method: 'PUT',
+            headers: {
+                ...getAuthHeader(),
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify(productData)
+        });
+        
+        return handleResponse(response);
+    } catch (error) {
+        console.error('Error updating product:', error);
+        throw error;
+    }
+};
+
+export const updateInventory = async (productId, inventoryData) => {
+    try {
+        const response = await fetch(`${API_BASE_URL}/products/${productId}/inventory`, {
+            method: 'PUT',
+            headers: {
+                ...getAuthHeader(),
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify(inventoryData)
+        });
+        
+        return handleResponse(response);
+    } catch (error) {
+        console.error('Error updating inventory:', error);
+        throw error;
+    }
+};
+
+export const deleteProduct = async (productId) => {
+    try {
+        const response = await fetch(`${API_BASE_URL}/products/${productId}`, {
+            method: 'DELETE',
+            headers: {
+                ...getAuthHeader(),
+                'Content-Type': 'application/json'
+            }
+        });
+        
+        return handleResponse(response);
+    } catch (error) {
+        console.error('Error deleting product:', error);
+        throw error;
+    }
+};
+
+export const getLowStockProducts = async () => {
+    try {
+        const response = await fetch(`${API_BASE_URL}/products/low-stock`, {
+            headers: {
+                ...getAuthHeader(),
+                'Content-Type': 'application/json'
+            }
+        });
+        
+        return handleResponse(response);
+    } catch (error) {
+        console.error('Error fetching low stock products:', error);
+        throw error;
+    }
+}; 
