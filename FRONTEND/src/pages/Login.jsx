@@ -16,16 +16,27 @@ const Login = () => {
   const { login: authLogin } = useAuth();
 
   useEffect(() => {
-    // Check if already logged in
     const token = localStorage.getItem('token');
-    if (token) {
-      navigate('/dashboard', { replace: true });
+    const userRole = localStorage.getItem('userRole');
+    if (token && userRole) {
+      switch (userRole) {
+        case 'ADMIN':
+        case 'STORE_MANAGER':
+          navigate('/dashboard', { replace: true });
+          break;
+        case 'SALES_STAFF':
+          navigate('/sales', { replace: true });
+          break;
+        case 'INVENTORY_STAFF':
+          navigate('/inventory', { replace: true });
+          break;
+        default:
+          navigate('/login', { replace: true });
+      }
     }
-    // Remove loading after a short delay
     const timer = setTimeout(() => {
       setPageLoading(false);
     }, 1000);
-    
     return () => clearTimeout(timer);
   }, [navigate]);
 
@@ -57,26 +68,31 @@ const Login = () => {
 
   const handleSubmit = async (e) => {
     e.preventDefault();
-    
-    if (!validateForm()) {
-      return;
-    }
-    
-    setIsSubmitting(true);
     setError('');
-    
+    setIsSubmitting(true);
+
     try {
-      const response = await login(credentials);
-      
-      // Store user info
-      authLogin(response.user);
-      localStorage.setItem('userName', response.user.full_name);
-      localStorage.setItem('userEmail', response.user.email);
-      localStorage.setItem('userRole', response.user.role);
-      
-      navigate('/dashboard', { replace: true });
+      const data = await login(credentials);
+      authLogin(data);
+
+      // Role-based redirection
+      switch (data.role) {
+        case 'ADMIN':
+        case 'STORE_MANAGER':
+          navigate('/dashboard');
+          break;
+        case 'SALES_STAFF':
+          navigate('/sales');
+          break;
+        case 'INVENTORY_STAFF':
+          navigate('/inventory');
+          break;
+        default:
+          setError('Invalid user role');
+      }
     } catch (error) {
-      setError(error.message || 'Invalid credentials');
+      console.error('Login error:', error);
+      setError(error.message || 'Failed to login. Please try again.');
     } finally {
       setIsSubmitting(false);
     }
@@ -175,7 +191,7 @@ const Login = () => {
           </form>
           
           <div className="login-footer">
-            <p>© 2023 Mira Textile. All rights reserved.</p>
+            <p> 2023 Mira Textile. All rights reserved.</p>
           </div>
         </div>
       </div>

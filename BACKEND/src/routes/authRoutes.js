@@ -1,14 +1,37 @@
 const express = require('express');
 const router = express.Router();
 const authController = require('../controllers/authController');
-const auth = require('../middleware/auth');
+const { auth, authorize } = require('../middleware/auth');
 
 // Public routes
 router.post('/login', authController.login);
-router.post('/forgot-password', authController.forgotPassword);
-router.post('/reset-password', authController.resetPassword);
 
 // Protected routes
 router.get('/profile', auth, authController.getProfile);
+router.put('/profile', auth, authController.updateProfile);
 
-module.exports = router; 
+// Admin routes
+router.post(
+  '/users',
+  auth,
+  authorize('ADMIN'),
+  authController.createUser
+);
+
+router.patch(
+  '/users/:id/status',
+  auth,
+  authorize('ADMIN'),
+  authController.updateUserStatus
+);
+
+// Store Manager routes
+router.get(
+  '/users',
+  auth,
+  authorize('ADMIN', 'STORE_MANAGER'),
+  authController.getUsers
+);
+
+// Export router
+module.exports = router;

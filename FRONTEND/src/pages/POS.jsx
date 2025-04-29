@@ -89,26 +89,31 @@ const POSInterface = () => {
     fetchUserData();
   }, [user]);
 
+  useEffect(() => {
+    if (!user || !['ADMIN', 'STORE_MANAGER', 'SALES_STAFF'].includes(user.role)) {
+      showNotification('Insufficient permissions to access POS system', 'error');
+      navigate('/');
+    }
+  }, [user, navigate]);
+
   const fetchCustomers = async () => {
     setIsLoading(true);
     try {
-      // Simulate API response if backend isn't ready
-      setTimeout(() => {
-        const mockCustomers = [
-          { id: 1, name: 'John Doe', contact_info: 'john@example.com', credit_limit: 1000 },
-          { id: 2, name: 'Jane Smith', contact_info: '555-123-4567', credit_limit: 2000 }
-        ];
-        setCustomers(mockCustomers);
-        setIsLoading(false);
-      }, 500);
+      const token = localStorage.getItem('token');
+      const response = await fetch('http://localhost:8080/api/customers', {
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json'
+        }
+      });
       
-      // Uncomment this for real API
-      /*
-      const response = await fetch('/api/customers');
+      if (!response.ok) {
+        throw new Error('Failed to fetch customers');
+      }
+      
       const data = await response.json();
       setCustomers(data);
       setIsLoading(false);
-      */
     } catch (error) {
       console.error('Error fetching customers:', error);
       showNotification('Failed to load customers', 'error');
@@ -251,46 +256,47 @@ const POSInterface = () => {
   };
 
   const addNewCustomer = async () => {
-    if (!validateCustomerForm()) return;
-    
+    if (!validateCustomerForm()) {
+      return;
+    }
+
     try {
-      // Simulate API response if backend isn't ready
-      const newCustomerId = customers.length + 1;
-      const addedCustomer = {
-        id: newCustomerId,
-        ...newCustomer
-      };
-      
-      setCustomers([...customers, addedCustomer]);
-      setSelectedCustomer(newCustomerId.toString());
-      setShowAddCustomerModal(false);
-      setNewCustomer({ name: '', contact_info: '', credit_limit: 500 });
-      showNotification('Customer added successfully', 'success');
-      
-      // Uncomment this for real API
-      /*
-      const response = await fetch('/api/customers', {
+      const token = localStorage.getItem('token');
+      const response = await fetch('http://localhost:8080/api/customers', {
         method: 'POST',
         headers: {
+          'Authorization': `Bearer ${token}`,
           'Content-Type': 'application/json'
         },
         body: JSON.stringify(newCustomer)
       });
-      
-      if (response.ok) {
-        const addedCustomer = await response.json();
-        setCustomers([...customers, addedCustomer]);
-        setSelectedCustomer(addedCustomer.id);
-        setShowAddCustomerModal(false);
-        setNewCustomer({ name: '', contact_info: '', credit_limit: 500 });
-        showNotification('Customer added successfully', 'success');
-      } else {
-        showNotification('Failed to add customer', 'error');
+
+      if (!response.ok) {
+        const error = await response.json();
+        throw new Error(error.message || 'Failed to add customer');
       }
-      */
+
+      const data = await response.json();
+      
+      // Add new customer to the list
+      setCustomers(prev => [...prev, data]);
+      
+      // Select the new customer
+      setSelectedCustomer(data.customer_id);
+      
+      // Reset form and close modal
+      setNewCustomer({
+        name: '',
+        contact_info: '',
+        credit_limit: 500
+      });
+      setErrors({});
+      setShowAddCustomerModal(false);
+      
+      showNotification('Customer added successfully', 'success');
     } catch (error) {
       console.error('Error adding customer:', error);
-      showNotification('Failed to add customer', 'error');
+      showNotification(error.message || 'Failed to add customer', 'error');
     }
   };
 

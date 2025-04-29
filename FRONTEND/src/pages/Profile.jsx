@@ -1,23 +1,16 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { 
   FaUserCircle, 
-  FaEnvelope, 
-  FaLock,
-  FaBox, 
-  FaShoppingCart, 
-  FaRupeeSign, 
-  FaFolder,
-  FaPlus, 
-  FaChartBar, 
-  FaUsers,
-  FaUserPlus,
-  FaSync,
   FaSignOutAlt,
+  FaSync,
   FaBars,
   FaKey,
-  FaPhone,
-  FaMapMarkerAlt
+  FaChartBar,
+  FaBox,
+  FaShoppingCart,
+  FaUsers,
+  FaFolder
 } from 'react-icons/fa';
 import '../styles/dashboard.css';
 import { useAuth } from '../context/AuthContext';
@@ -26,15 +19,14 @@ const API_BASE_URL = 'http://localhost:8082/api';
 
 const Profile = () => {
   const navigate = useNavigate();
-  const { user } = useAuth();
+  const { user, logout } = useAuth();
   const [formData, setFormData] = useState({
-    username: '',
-    email: '',
-    password: '',
-    fullName: '',
-    phoneNumber: '',
-    address: '',
-    role: ''
+    username: user?.username || '',
+    email: user?.email || '',
+    fullName: user?.full_name || '',
+    phoneNumber: user?.phone_number || '',
+    address: user?.address || '',
+    password: ''
   });
   const [errors, setErrors] = useState({});
   const [isLoading, setIsLoading] = useState(true);
@@ -43,11 +35,10 @@ const Profile = () => {
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
   const [userMenuOpen, setUserMenuOpen] = useState(false);
   const [userData, setUserData] = useState({
-    name: user?.full_name || user?.username || '',
-    email: user?.email || '',
+    name: user?.full_name || user?.username || 'Unknown User',
+    email: user?.email || 'No email',
     phoneNumber: user?.phone_number || '',
-    address: user?.address || '',
-    role: user?.role || ''
+    address: user?.address || ''
   });
 
   const fetchUserProfile = async () => {
@@ -60,41 +51,54 @@ const Profile = () => {
 
       const response = await fetch('http://localhost:8080/api/auth/profile', {
         headers: {
-          'Authorization': `Bearer ${token}`
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json'
         }
       });
 
       if (!response.ok) {
+        if (response.status === 401) {
+          localStorage.removeItem('token');
+          navigate('/login');
+          return;
+        }
         throw new Error('Failed to fetch user profile');
       }
 
       const data = await response.json();
+      
+      // Update local storage with latest user data
+      localStorage.setItem('userName', data.full_name || data.username);
+      localStorage.setItem('userEmail', data.email);
+      
       const updatedUserData = {
         name: data.full_name || data.username || 'Unknown User',
         email: data.email || 'No email',
         phoneNumber: data.phone_number || '',
-        address: data.address || '',
-        role: data.role || 'Unknown Role'
+        address: data.address || ''
       };
 
       setUserData(updatedUserData);
-      localStorage.setItem('userName', updatedUserData.name);
-      localStorage.setItem('userEmail', updatedUserData.email);
-      localStorage.setItem('userRole', updatedUserData.role);
+      setFormData(prev => ({
+        ...prev,
+        username: data.username,
+        fullName: data.full_name || data.username,
+        email: data.email,
+        phoneNumber: data.phone_number || '',
+        address: data.address || ''
+      }));
+      setIsLoading(false);
     } catch (error) {
       console.error('Error fetching user profile:', error);
-      setUserData({
-        name: user?.full_name || user?.username || 'User',
-        email: user?.email || '',
-        phoneNumber: user?.phone_number || '',
-        address: user?.address || '',
-        role: user?.role || ''
-      });
+      showToast('Failed to load profile. Please try again.', 'error');
+      setIsLoading(false);
     }
   };
 
   useEffect(() => {
-    fetchUserProfile();
+    if (user) {
+      fetchUserProfile();
+    }
   }, [user]);
 
   const handleChange = (e) => {
@@ -152,88 +156,56 @@ const Profile = () => {
     try {
       const token = localStorage.getItem('token');
       if (!token) {
-        console.error('No token found');
-        navigate('/Login');
+        navigate('/login');
         return;
       }
-      
-      const payload = {
+
+      const updateData = {
+        full_name: formData.fullName,
         email: formData.email,
-        username: formData.username,
-        fullName: formData.fullName,
-        phoneNumber: formData.phoneNumber,
+        phone_number: formData.phoneNumber,
         address: formData.address
       };
-      
-      if (formData.password && formData.password.trim()) {
-        payload.password = formData.password;
+
+      if (formData.password) {
+        updateData.password = formData.password;
       }
-      
-      console.log('Sending update request with payload:', payload);
-      
-      const response = await fetch(`${API_BASE_URL}/admin/users/profile`, {
+
+      const response = await fetch('http://localhost:8080/api/auth/profile', {
         method: 'PUT',
         headers: {
           'Authorization': `Bearer ${token}`,
-          'Content-Type': 'application/json',
-          'Accept': 'application/json'
+          'Content-Type': 'application/json'
         },
-        body: JSON.stringify(payload)
+        body: JSON.stringify(updateData)
       });
-      
-      const data = await response.json();
-      console.log('Update response:', data);
-      
-      // Only redirect to login for authentication errors
-      if (response.status === 401 || response.status === 403) {
-        console.error('Authentication failed:', data.message);
-        localStorage.removeItem('token');
-        navigate('/Login');
-        return;
-      }
-      
+
       if (!response.ok) {
-        throw new Error(data.message || `HTTP error! status: ${response.status}`);
+        if (response.status === 401) {
+          localStorage.removeItem('token');
+          navigate('/login');
+          return;
+        }
+        throw new Error('Failed to update profile');
       }
+
+      const data = await response.json();
+      showToast('Profile updated successfully!', 'success');
       
-      if (data && data.success && data.data) {
-        // Reset password field
-        setFormData(prev => ({
-          ...prev,
-          password: ''
-        }));
-        
-        // Update user data in state and localStorage
-        const userInfo = {
-          name: data.data.full_name || data.data.username || userData.name,
-          email: data.data.email || userData.email,
-          role: data.data.role || userData.role
-        };
-        
-        setUserData(userInfo);
-        localStorage.setItem('userName', userInfo.name);
-        localStorage.setItem('userEmail', userInfo.email);
-        localStorage.setItem('userRole', userInfo.role);
-        
-        showToast('Profile updated successfully', 'success');
-        
-        // Update the user menu display immediately
-        const userDetailsH3 = document.querySelector('.user-details h3');
-        const userDetailsP = document.querySelector('.user-details p');
-        
-        if (userDetailsH3) userDetailsH3.textContent = userInfo.name;
-        if (userDetailsP) userDetailsP.textContent = userInfo.email;
-      } else {
-        throw new Error('Invalid response format from server');
-      }
+      // Update local storage with new user data
+      localStorage.setItem('userName', formData.fullName);
+      localStorage.setItem('userEmail', formData.email);
+      
+      // Update user data state
+      setUserData({
+        name: formData.fullName,
+        email: formData.email,
+        phoneNumber: formData.phoneNumber,
+        address: formData.address
+      });
     } catch (error) {
       console.error('Error updating profile:', error);
-      showToast(error.message || 'Failed to update profile', 'error');
-      
-      // Only navigate to login if it's an authentication error
-      if (error.message.includes('Authentication failed') || error.message.includes('Invalid token')) {
-        navigate('/Login');
-      }
+      showToast('Failed to update profile. Please try again.', 'error');
     } finally {
       setIsSubmitting(false);
     }
@@ -251,19 +223,14 @@ const Profile = () => {
     }, 3000);
   };
 
-  const handleLogout = () => {
-    if (window.confirm("Are you sure you want to logout?")) {
-      try {
-        // Clear all user data from localStorage
-        localStorage.clear();
-        sessionStorage.clear();
-        // Navigate to login page
-        navigate('/login');
-      } catch (error) {
-        console.error('Error during logout:', error);
-        // Fallback direct navigation if anything fails
-        window.location.href = '/login';
-      }
+  const handleLogout = async () => {
+    try {
+      // First navigate to login
+      navigate('/login', { replace: true });
+      // Then perform logout
+      logout();
+    } catch (error) {
+      console.error('Logout error:', error);
     }
   };
 
@@ -331,12 +298,11 @@ const Profile = () => {
               <FaSync />
             </button>
             <div className="user-menu-container">
-              <button className="user-menu-btn" onClick={toggleUserMenu}>
+              <div className="user-profile-icon" onClick={toggleUserMenu}>
                 <FaUserCircle />
-              </button>
-              
+              </div>
               {userMenuOpen && (
-                <div className="user-popup">
+                <div className="user-menu">
                   <div className="user-info">
                     <div className="user-avatar">
                       <FaUserCircle />
@@ -344,17 +310,10 @@ const Profile = () => {
                     <div className="user-details">
                       <h3>{userData.name || 'Demo User'}</h3>
                       <p>{userData.email || 'demo@miratextile.com'}</p>
-                      <span className="user-role">{userData.role || 'Admin'}</span>
                     </div>
                   </div>
                   <div className="user-actions">
-                    <button className="view-profile-btn" onClick={handleUser}>
-                      <FaUserCircle /> View Profile
-                    </button>
-                    <button className="reset-password-btn" onClick={handleResetPassword}>
-                      <FaKey /> Reset Password
-                    </button>
-                    <button className="logout-btn" onClick={handleLogout}>
+                    <button onClick={handleLogout} className="logout-button">
                       <FaSignOutAlt /> Logout
                     </button>
                   </div>
@@ -383,7 +342,6 @@ const Profile = () => {
               <div className="card profile-card">
                 <div className="card-header">
                   <h2>User Profile</h2>
-                  <div className="user-role-badge">{formData.role}</div>
                 </div>
                 <div className="card-body">
                   <div className="profile-avatar">
@@ -410,7 +368,7 @@ const Profile = () => {
                       <div className="form-field">
                         <label htmlFor="email">Email Address</label>
                         <div className="input-with-icon">
-                          <FaEnvelope className="field-icon" />
+                          <FaKey className="field-icon" />
                           <input
                             type="email"
                             id="email"
@@ -444,7 +402,7 @@ const Profile = () => {
                       <div className="form-field">
                         <label htmlFor="phoneNumber">Phone Number</label>
                         <div className="input-with-icon">
-                          <FaPhone className="field-icon" />
+                          <FaKey className="field-icon" />
                           <input
                             type="text"
                             id="phoneNumber"
@@ -461,7 +419,7 @@ const Profile = () => {
                       <div className="form-field full-width">
                         <label htmlFor="address">Address</label>
                         <div className="input-with-icon">
-                          <FaMapMarkerAlt className="field-icon" />
+                          <FaKey className="field-icon" />
                           <input
                             type="text"
                             id="address"
@@ -478,7 +436,7 @@ const Profile = () => {
                       <div className="form-field full-width">
                         <label htmlFor="password">New Password (optional)</label>
                         <div className="input-with-icon">
-                          <FaLock className="field-icon" />
+                          <FaKey className="field-icon" />
                           <input
                             type="password"
                             id="password"

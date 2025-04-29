@@ -12,17 +12,28 @@ export const AuthProvider = ({ children }) => {
   useEffect(() => {
     const checkAuth = async () => {
       const token = localStorage.getItem('token');
+      const storedRole = localStorage.getItem('userRole');
       
       if (token) {
         try {
           const userData = await fetchUserProfile();
-          setUser(userData);
+          // Ensure role is properly set
+          const userWithRole = {
+            ...userData,
+            role: userData.role || storedRole
+          };
+          setUser(userWithRole);
+          
+          // Update localStorage with latest data
+          localStorage.setItem('userName', userData.full_name || userData.username);
+          localStorage.setItem('userEmail', userData.email);
+          localStorage.setItem('userRole', userData.role);
         } catch (error) {
           console.error('Error fetching user profile:', error);
-          // Clear invalid token
-          localStorage.removeItem('token');
-          setUser(null);
+          clearAuthData();
         }
+      } else {
+        clearAuthData();
       }
       
       setLoading(false);
@@ -31,21 +42,26 @@ export const AuthProvider = ({ children }) => {
     checkAuth();
   }, []);
 
+  const clearAuthData = () => {
+    localStorage.removeItem('token');
+    localStorage.removeItem('userName');
+    localStorage.removeItem('userEmail');
+    localStorage.removeItem('userRole');
+    setUser(null);
+  };
+
   const login = (userData) => {
+    if (!userData.role) {
+      console.error('No role provided in user data');
+      return;
+    }
     setUser(userData);
-    // Token is already stored by the login API call
     console.log('User logged in:', userData);
   };
 
   const logout = () => {
     try {
-      // Clear all auth data
-      localStorage.removeItem('token');
-      localStorage.removeItem('userName');
-      localStorage.removeItem('userEmail');
-      localStorage.removeItem('userRole');
-      setUser(null);
-      
+      clearAuthData();
       console.log('User logged out');
     } catch (error) {
       console.error('Error during logout:', error);
@@ -54,11 +70,16 @@ export const AuthProvider = ({ children }) => {
     }
   };
 
+  const hasRole = (requiredRole) => {
+    return user && user.role === requiredRole;
+  };
+
   const value = {
     user,
     loading,
     login,
     logout,
+    hasRole,
     isAuthenticated: !!user
   };
 

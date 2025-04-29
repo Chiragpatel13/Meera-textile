@@ -1,21 +1,20 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { 
-  FaUserPlus, 
   FaUserCircle, 
   FaBars,
   FaSignOutAlt,
   FaKey,
-  FaCalendarAlt,
+  FaEdit,
+  FaTrash,
+  FaSearch,
   FaChartBar,
   FaBox,
   FaCashRegister,
   FaUsers,
   FaFolder,
-  FaEdit,
-  FaTrash,
-  FaSearch,
-  FaFilter
+  FaCalendarAlt,
+  FaUserPlus
 } from 'react-icons/fa';
 import { useAuth } from '../context/AuthContext';
 import '../styles/dashboard.css';
@@ -23,7 +22,7 @@ import '../styles/UserManagement.css';
 
 const UserManagement = () => {
   const navigate = useNavigate();
-  const { user } = useAuth();
+  const { user, logout } = useAuth();
   const [users, setUsers] = useState([]);
   const [filteredUsers, setFilteredUsers] = useState([]);
   const [searchTerm, setSearchTerm] = useState('');
@@ -44,13 +43,12 @@ const UserManagement = () => {
   const [successMessage, setSuccessMessage] = useState('');
   const [errorMessage, setErrorMessage] = useState('');
 
+  // Check for admin access
   useEffect(() => {
-    fetchUsers();
-  }, []);
-
-  useEffect(() => {
-    filterUsers();
-  }, [searchTerm, users, filterUsers]);
+    if (!user || user.role !== 'ADMIN') {
+      navigate('/dashboard');
+    }
+  }, [user, navigate]);
 
   const fetchUsers = async () => {
     try {
@@ -59,19 +57,26 @@ const UserManagement = () => {
         throw new Error('No authentication token found');
       }
 
-      const response = await fetch('http://localhost:8080/api/admin/users', {
+      const response = await fetch('http://localhost:8080/api/auth/users', {
         headers: {
-          'Authorization': `Bearer ${token}`
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json'
         }
       });
 
       if (!response.ok) {
+        if (response.status === 401) {
+          navigate('/login');
+          return;
+        }
         const errorData = await response.json();
         throw new Error(errorData.message || 'Failed to fetch users');
       }
 
       const data = await response.json();
-      setUsers(data);
+      const usersList = Array.isArray(data) ? data : (data.users || []);
+      setUsers(usersList);
+      setFilteredUsers(usersList);
     } catch (error) {
       console.error('Error fetching users:', error);
       setErrorMessage(error.message || 'Failed to fetch users. Please try again.');
@@ -80,6 +85,16 @@ const UserManagement = () => {
     }
   };
 
+  useEffect(() => {
+    if (user && user.role === 'ADMIN') {
+      fetchUsers();
+    }
+  }, [user]);
+
+  useEffect(() => {
+    filterUsers();
+  }, [searchTerm, users]);
+
   const filterUsers = useCallback(() => {
     if (!searchTerm) {
       setFilteredUsers(users);
@@ -87,13 +102,17 @@ const UserManagement = () => {
     }
 
     const filtered = users.filter(user => 
-      user.username.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      user.full_name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      user.email.toLowerCase().includes(searchTerm.toLowerCase())
+      user.username?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      user.full_name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      user.email?.toLowerCase().includes(searchTerm.toLowerCase())
     );
     
     setFilteredUsers(filtered);
   }, [searchTerm, users]);
+
+  useEffect(() => {
+    fetchUsers();
+  }, []);
 
   const handleDeleteUser = async (userId) => {
     if (!userId) {
@@ -159,7 +178,7 @@ const UserManagement = () => {
   };
 
   const handleLogout = () => {
-    localStorage.clear();
+    logout();
     navigate('/login');
   };
 

@@ -774,7 +774,7 @@ const Dashboard = () => {
                     <Link to="/inventory/manage" className="action-button secondary">
                       <FaBox /> Manage Inventory
                     </Link>
-                    <Link to="/UserManagement" className="action-button tertiary">
+                    <Link to="/add-user" className="action-button tertiary">
                       <FaUserPlus /> Add User
                     </Link>
                     <Link to="/Reportingpage" className="action-button quaternary">

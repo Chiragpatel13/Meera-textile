@@ -1,15 +1,12 @@
 const express = require('express');
 const router = express.Router();
 const userController = require('../controllers/userController');
-const auth = require('../middleware/auth');
+const { auth, authorize } = require('../middleware/auth');
 
-// All routes are protected and require admin role
-router.use(auth);
+// Admin routes with role-based access
+router.get('/admin/users', auth, authorize('ADMIN'), userController.getAllUsers);
+router.post('/admin/users', auth, authorize('ADMIN'), userController.createUser);
+router.put('/admin/users/:id', auth, authorize('ADMIN'), userController.updateUser);
+router.delete('/admin/users/:id', auth, authorize('ADMIN'), userController.deleteUser);
 
-// Admin routes
-router.get('/admin/users', userController.getAllUsers);
-router.post('/admin/users', userController.createUser);
-router.put('/admin/users/:id', userController.updateUser);
-router.delete('/admin/users/:id', userController.deleteUser);
-
-module.exports = router; 
+module.exports = router;
